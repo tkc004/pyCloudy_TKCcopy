@@ -2446,7 +2446,7 @@ class CloudyInput(object):
 
     ## define the abundances
     def set_abund(self, predef = None, elem = None, value = None, nograins = True,
-                  ab_dict = None, metals=None, metalsgrains=None):
+                  ab_dict = None, metals=None, metalsgrains=None, metalsdeplete=None):
         """
         Defines the abundances.
         Parameters:
@@ -2478,6 +2478,7 @@ class CloudyInput(object):
         self._metals = metals
         self._metalsgrains = metalsgrains
         self._nograins = nograins
+        self._metalsdeplete = metalsdeplete
 
     def set_other(self, other_str = None):
         """
