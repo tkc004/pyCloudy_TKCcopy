@@ -6,6 +6,7 @@
 **/.svn/**
 pyCloudy.egg-info/
 dist/
+build/
 doxygen*
 make_documentation.py
 tips.txt
