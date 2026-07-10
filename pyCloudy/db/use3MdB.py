@@ -445,9 +445,10 @@ class writeTab(object):
             self.CloudyModel = pc.CloudyModel('{0}/{1}/{2}'.format(self.models_dir, self.pending['dir'], name), 
                                               read_cont=True, list_elem = LIST_ALL_ELEM)
             if not self.CloudyModel.aborted:
-                self.update_status('Model read')
+                self.update_status('Model read') #13
                 self.log_.debug('Model read', calling='read_model')
                 if 'wrong' in self.CloudyModel.out and not self.OK_with_wrong:
+                    self.log_.warn('Model {0} contains "wrong" in its output'.format(name))
                     status = False
                 else:
                     status = True

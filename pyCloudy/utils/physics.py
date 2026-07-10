@@ -499,7 +499,7 @@ def get_abunds_Ni17_G24(lOH=-3.24, lNO=None, lCO=None, Fstar=0.5, delta_NO=0.0, 
     abunds_depl = {}
     sum_depl = 0
     for elem in abunds:
-        if elem in depl_G21.keys():
+        if elem in depl_G21:
             ldepl = min(depl_G21[elem][1] + depl_G21[elem][0] * (Fstar - depl_G21[elem][2]), 0)
             abunds_depl[elem] = abunds[elem] + ldepl
             sum_depl += 10**(abunds[elem]) - 10**(abunds_depl[elem])
