@@ -5,7 +5,7 @@ from pyCloudy.utils import misc
 from pyCloudy.utils.physics import atomic_mass
 if pc.config.INSTALLED['Triangulation']:
     try:
-        from matplotlib.tri.triangulation import Triangulation
+        from matplotlib.tri import Triangulation
     except:
         from matplotlib.delaunay import Triangulation
 if pc.config.INSTALLED['scipy']:

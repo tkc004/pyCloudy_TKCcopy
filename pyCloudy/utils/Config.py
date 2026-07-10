@@ -21,7 +21,7 @@ class _Config(object):
         self.INSTALLED ={}
         try:
             try:
-                from matplotlib.tri.triangulation import Triangulation
+                from matplotlib.tri import Triangulation
             except:
                 from matplotlib.delaunay import Triangulation
             self.INSTALLED['Triangulation'] = True
