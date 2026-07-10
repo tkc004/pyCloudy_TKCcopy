@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pyCloudy"
+dynamic = ["version"]
+description = "Tools to manage Astronomical Cloudy photoionization code"
+readme = "README.rst"
+license = "GPL-3.0-or-later"
+authors = [
+    {name = "Christophe Morisset IA-UNAM", email = "chris.morisset@gmail.com"},
+]
+maintainers = [
+    {name = "Christophe Morisset IA-UNAM", email = "chris.morisset@gmail.com"},
+]
+keywords = ["astronomy", "photoionization", "cloudy"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Astronomy",
+]
+requires-python = ">=3.8"
+dependencies = [
+    "numpy",
+    "scipy",
+]
+
+[project.optional-dependencies]
+plot = ["matplotlib"]
+fits = ["astropy"]
+images = ["Pillow"]
+pandas = ["pandas"]
+mysql = ["pymysql"]
+pyneb = ["pyneb"]
+full = ["matplotlib", "astropy", "Pillow", "pandas", "pymysql", "pyneb"]
+
+[project.urls]
+Homepage = "https://sites.google.com/site/pycloudy/"
+Repository = "https://github.com/Morisset/pyCloudy"
+
+[tool.setuptools]
+packages = ["pyCloudy", "pyCloudy.c1d", "pyCloudy.c3d", "pyCloudy.utils", "pyCloudy.db"]
+
+[tool.setuptools.dynamic]
+version = {attr = "pyCloudy.version.__version__"}
+
+[tool.setuptools.package-data]
+"pyCloudy.utils" = ["*.txt"]
+"pyCloudy.db" = ["*.ini"]
