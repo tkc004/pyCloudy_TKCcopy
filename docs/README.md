@@ -126,6 +126,10 @@ helpers exported by the package.
 
 See [`CloudyInput.md`](CloudyInput.md) for the full `CloudyInput` method reference.
 
+See [`CloudyModel.md`](CloudyModel.md) for the main model-reading and output-analysis reference.
+
+See [`C3D.md`](C3D.md) for the 3D interpolation and map-building reference.
+
 ## Working With Cloudy
 
 pyCloudy_TKCcopy expects a local Cloudy executable. You can set it in either of these

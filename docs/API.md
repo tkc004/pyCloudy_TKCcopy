@@ -4,7 +4,11 @@ This page summarizes the main public objects exposed by `pyCloudy_TKCcopy`.
 It is intentionally compact and points to the most commonly used classes and
 helpers. For implementation details, see the source files in `pyCloudy/`.
 
-For a detailed `CloudyInput` method reference, see [CloudyInput.md](CloudyInput.md).
+For detailed model-building and model-reading references, see:
+
+- [CloudyInput.md](CloudyInput.md)
+- [CloudyModel.md](CloudyModel.md)
+- [C3D.md](C3D.md)
 
 ## Top-Level Imports
 
@@ -30,61 +34,30 @@ The package root exports the most common entry points:
 
 Create Cloudy input files and optionally run Cloudy.
 
-Detailed reference:
-
-- [CloudyInput.md](CloudyInput.md)
-
-Common methods:
-
-- `set_BB(...)` - define a blackbody source
-- `set_star(...)` - define a custom source
-- `set_cste_density(...)` - define a constant density model
-- `set_dlaw(...)` - define a density law
-- `set_radius(...)` - set inner and outer radii
-- `set_abund(...)` - set abundances
-- `set_other(...)` - add raw Cloudy commands
-- `set_iterate(...)` - configure iterations
-- `set_sphere(...)` - select spherical or open geometry
-- `set_grains(...)` - configure dust grains
-- `set_stop(...)` - define stopping criteria
-- `set_distance(...)` - set distance and normalization
-- `set_emis_tab(...)` - define an emission line table
-- `print_input(...)` - write the input file
-- `run_cloudy(...)` - execute Cloudy
+Common entry points include `set_BB(...)`, `set_cste_density(...)`,
+`set_abund(...)`, `print_input(...)`, and `run_cloudy(...)`. For the full
+method-by-method reference and parameter notes, see the dedicated
+[CloudyInput.md](CloudyInput.md) page.
 
 ### `CloudyModel`
 
-Load a completed Cloudy model and access derived data.
+Load a completed Cloudy model and access the output files and diagnostics.
 
-Frequently used properties and methods:
+If you need multiple models, use `load_models(model_name=None, mod_list=None,
+n_sample=None, verbose=False, **kwargs)`. It searches for matching `.out`
+files when `model_name` is given, or reads the paths in `mod_list` when you
+already have a list of models. The optional `n_sample` argument randomly
+selects a subset, `verbose=True` prints progress, and extra keyword arguments
+are forwarded to `CloudyModel`.
 
-- `zones`, `n_zones`
-- `depth`, `radius`, `thickness`
-- `ne`, `nH`, `te`, `ff`
-- `cool`, `heat`
-- `abunds`
-- `get_ionic(elem, ion)`
-- `get_line(ref)`
-- `get_emis(ref)`
-- `get_emis_vol(ref, at_earth=False)`
-- `get_T0_ion_vol(elem=None, ion=None)`
-- `get_ab_ion_vol(elem=None, ion=None)`
-- `get_t2_ion_vol(elem=None, ion=None)`
-- `get_T0_emis(ref)`
-- `get_t2_emis(ref)`
-- `get_cont_x(...)`
-- `get_cont_y(...)`
-- `get_integ_spec(...)`
-- `get_interp_cont(...)`
-- `plot_spectrum(...)`
-- `print_lines(...)`
-- `print_stats()`
+See the dedicated [CloudyModel.md](CloudyModel.md) page for the full
+output-reading and analysis reference.
 
 ### Module Helpers
 
-- `load_models(...)` - load one or more models by name or from a model list
-- `print_make_file(...)` - generate a makefile for running Cloudy
-- `run_cloudy(...)` - run a set of models from a directory
+- `load_models(model_name=None, mod_list=None, n_sample=None, verbose=False, **kwargs)` - load one or more models by base name or from an explicit file list
+- `print_make_file(dir_=None)` - generate a Makefile that points to the configured Cloudy executable
+- `run_cloudy(dir_=None, n_proc=1, use_make=True, model_name=None, precom="", cloudy_version=None)` - run Cloudy from Python, either through `make` or by calling the executable directly
 
 ## `pyCloudy.c3d`
 
@@ -103,26 +76,8 @@ Useful capabilities:
 
 Construct a 3D object from a list of 1D Cloudy models.
 
-Common methods and properties:
-
-- `nH`, `ne`, `te`, `ff`
-- `log_U`, `log_U_mean`
-- `get_emis(ref)`
-- `get_emis_list(...)`
-- `get_emis_vol(ref, at_earth=False)`
-- `get_ionic(elem, ion)`
-- `get_ionic_list()`
-- `get_T0_emis(ref)`
-- `get_t2_emis(ref)`
-- `get_T0_ion_vol(elem, ion)`
-- `get_t2_ion_vol(elem, ion)`
-- `get_ab_ion_vol(elem=None, ion=None)`
-- `get_vel_ionic(elem, ion)`
-- `get_vel_emis(ref)`
-- `config_profile(...)`
-- `get_profile(ref, axis='x')`
-- `plot_profiles(...)`
-- `get_RGB(...)`
+See the dedicated [C3D.md](C3D.md) page for the full input/output and method
+reference.
 
 ## `pyCloudy.db`
 

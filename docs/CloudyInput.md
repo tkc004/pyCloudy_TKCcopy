@@ -50,6 +50,10 @@ Define a blackbody source.
 - `Teff`: effective temperature in K
 - `lumi_unit`: Cloudy luminosity unit such as `q(H)` or `logU`
 - `lumi_value`: numeric value for the chosen unit
+- Use this when you want the source spectrum to be a simple thermal
+  blackbody rather than a table-based SED.
+- Example: `set_BB(Teff=40000, lumi_unit="q(H)", lumi_value=47)` creates a
+  40,000 K blackbody normalized to an ionizing-photon rate of `10^47`.
 
 ### `set_star(SED=None, SED_params=None, lumi_unit=None, lumi_value=None)`
 
@@ -102,6 +106,8 @@ Set grain commands.
 - `None` clears the grain list
 - A scalar appends one grain command
 - A list or tuple appends several grain commands
+- Common use is to add Cloudy grain species such as `silicate` or `graphite`
+  before calling `print_input(...)`.
 
 ### `set_stop(stop_criter=None)`
 
@@ -109,6 +115,9 @@ Add stopping criteria.
 
 - `None` clears the list
 - A scalar or sequence appends one or more stopping commands
+- Typical stopping commands include conditions on temperature, depth, or
+  ionization state. You can pass a single string or a sequence of strings.
+- Example: `set_stop(["temperature 4000 K", "ionization parameter -2"])`.
 
 ### `read_emis_file(emis_file, N_char=14, emergent=False)`
 
@@ -153,6 +162,10 @@ Define abundances.
 - `ab_dict`: dictionary of element abundances
 - `nograins`: disable grain-related abundance handling
 - `metals`, `metalsgrains`, and `metalsdeplete`: optional metal-scaling controls
+- Use `predef` for a standard abundance mix such as `ism` or `hii region`.
+- Use `elem` and `value` when you want to override one element, for example
+  `elem="O", value=-4.5`.
+- Use `ab_dict` when you want to provide several abundances in one call.
 
 ### `set_other(other_str=None)`
 
@@ -195,6 +208,8 @@ Write the Cloudy input file.
 
 - `to_file=True` writes `<model_name>.in`
 - `verbose=True` echoes the generated input to the console
+- This is the step that turns the accumulated settings into a real Cloudy
+  `.in` file.
 
 ### `run_cloudy(dir_=None, n_proc=1, use_make=True, model_name=None, precom='')`
 
@@ -205,6 +220,8 @@ Run Cloudy for the configured model.
 - `use_make=True`: use the make-based runner when possible
 - `model_name`: optional model override
 - `precom`: optional prefix text before the Cloudy command
+- If `use_make=False`, the method runs a single model directly from the input
+  file instead of using a generated Makefile.
 
 ## Practical Example
 

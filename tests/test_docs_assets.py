@@ -8,6 +8,8 @@ def test_docs_pages_and_example_exports_exist():
         root / "docs" / "README.md",
         root / "docs" / "API.md",
         root / "docs" / "CloudyInput.md",
+        root / "docs" / "CloudyModel.md",
+        root / "docs" / "C3D.md",
         root / "docs" / "index.html",
         root / "python_examples" / "README.md",
     ]
