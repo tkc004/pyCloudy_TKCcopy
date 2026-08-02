@@ -1,14 +1,15 @@
-# pyCloudy Documentation
+# pyCloudy_TKCcopy Documentation
 
-This directory is the documentation hub for pyCloudy. The project already ships
-with a number of notebooks, PDFs, and example scripts under `pyCloudy/docs/`,
-and this file gives the top-level structure so new users can find the right
-starting point quickly.
+This directory is the documentation hub for `pyCloudy_TKCcopy`, the fork of
+pyCloudy maintained in this repository. The project already ships with a number
+of notebooks, PDFs, and example scripts under `pyCloudy/docs/`, and this file
+gives the top-level structure so new users can find the right starting point
+quickly.
 
 ## What pyCloudy Does
 
-pyCloudy is a companion library for the Cloudy photoionization code. It helps
-you:
+pyCloudy_TKCcopy is a companion library for the Cloudy photoionization code. It
+helps you:
 
 - build Cloudy input files from Python
 - run Cloudy from scripts or notebooks
@@ -60,7 +61,7 @@ Use `pyCloudy.utils` for common helpers.
 
 ## Suggested Reading Order
 
-If you are new to the project, this is the best path:
+If you are new to this fork, this is the best path:
 
 1. Read the top-level `README.rst`
 2. Open `pyCloudy/docs/Using_pyCloudy_1.ipynb`
@@ -110,7 +111,7 @@ print(c3d.get_emis_list())
 
 ## Working With Cloudy
 
-pyCloudy expects a local Cloudy executable. You can set it in either of these
+pyCloudy_TKCcopy expects a local Cloudy executable. You can set it in either of these
 ways:
 
 - assign `pc.config.cloudy_exe` in Python
@@ -147,7 +148,7 @@ the tests.
 
 ## Notes
 
-- pyCloudy is a companion library, not a replacement for Cloudy.
+- pyCloudy_TKCcopy is a companion library, not a replacement for Cloudy.
 - Many features are useful only when optional dependencies are installed.
 - The repository includes older examples and notebooks for reference; they are
   still helpful for understanding the package structure even if you write new

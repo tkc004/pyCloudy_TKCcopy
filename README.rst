@@ -1,9 +1,14 @@
-pyCloudy
+pyCloudy_TKCcopy
 ========
 
-pyCloudy is a Python library for working with the input and output files of
+pyCloudy_TKCcopy is a Python library for working with the input and output files of
 Cloudy, the photoionization and plasma simulation code by Gary Ferland and
 collaborators.
+
+
+Originally version (pyCloudy) is developed by Christophe Morisset (* Ch. Morisset (Instituto de Astronomia, Universidad Nacional Autonoma de Mexico))
+This version (pyCloudy_TKCcopy) is a fork of the original pyCloudy, maintained by Tsang Keung Chan, 
+with some modifications and additional features.
 
 The package focuses on three practical tasks:
 
@@ -17,6 +22,7 @@ astronomy utilities, and small numerical tools used throughout the workflow.
 Project home
 ------------
 
+Original pyCloudy project home and repository:
 * Website: https://sites.google.com/site/pycloudy/
 * Repository: https://github.com/Morisset/pyCloudy
 * Manual and notebooks: see the bundled documentation in ``pyCloudy/docs/``
@@ -46,7 +52,22 @@ pyCloudy.
 Installation
 ------------
 
-Install from PyPI:
+Install this fork from GitHub:
+
+.. code-block:: bash
+
+   git clone https://github.com/tkc004/pyCloudy_TKCcopy.git
+   cd pyCloudy_TKCcopy
+
+If you want to work from the source tree and keep the package linked to your
+checkout, install it in editable mode:
+
+.. code-block:: bash
+
+   pip install -e .
+
+You can also install the package directly with pip if you prefer not to clone
+the repository first:
 
 .. code-block:: bash
 
@@ -58,17 +79,11 @@ Install with optional features:
 
    pip install "pyCloudy[full]"
 
-Or install the development version from GitHub:
+Or install the original upstream development version from GitHub:
 
 .. code-block:: bash
 
    pip install -U git+https://github.com/Morisset/pyCloudy.git
-
-If you already have the source tree, you can also install it in editable mode:
-
-.. code-block:: bash
-
-   pip install -e .
 
 Configuring Cloudy
 ------------------
