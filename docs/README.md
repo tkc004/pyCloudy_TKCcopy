@@ -6,6 +6,16 @@ of notebooks, PDFs, and example scripts under `pyCloudy/docs/`, and this file
 gives the top-level structure so new users can find the right starting point
 quickly.
 
+`pyCloudy_TKCcopy` is a Python library for working with the input and output
+files of Cloudy, the photoionization and plasma simulation code by Gary Ferland
+and collaborators.
+
+Originally version (pyCloudy) is developed by Christophe Morisset
+(* Ch. Morisset (Instituto de Astronomia, Universidad Nacional Autonoma de Mexico))
+
+This version (pyCloudy_TKCcopy) is a fork of the original pyCloudy, maintained
+by Tsang Keung Chan, with some modifications.
+
 ## What pyCloudy Does
 
 pyCloudy_TKCcopy is a companion library for the Cloudy photoionization code. It
