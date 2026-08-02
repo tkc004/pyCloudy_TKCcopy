@@ -7,6 +7,7 @@ def test_docs_pages_and_example_exports_exist():
     required_docs = [
         root / "docs" / "README.md",
         root / "docs" / "API.md",
+        root / "docs" / "CloudyInput.md",
         root / "docs" / "index.html",
         root / "python_examples" / "README.md",
     ]

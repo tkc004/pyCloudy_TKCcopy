@@ -1,0 +1,48 @@
+options:
+  - no molecules
+  - no level2 lines
+  - no fine opacities
+  - atom h-like levels small
+  - atom he-like levels small
+  - Constant temperature, t=1e4 K [linear]
+  - element limit off -13
+  - print line optical depth
+  - element helium      off
+  - element carbon      off
+  - element oxygen      off
+  - element iron        off
+  - element nitrogen    off
+  - element silicon     off
+  - element sulphur     off
+  - element chlorine    off
+  - element sodium      off
+  - element magnesium   off
+  - element lithium     off
+  - element calcium     off
+  - element manganese   off
+  - element aluminum    off
+  - element phosphorus  off
+  - element potassium   off
+  - element titanium    off
+  - element chromium    off
+  - element nickel      off
+  - element zinc        off
+  - element cobalt      off
+  - element neon        off
+  - element fluorine    off
+  - element vanadium    off
+  - element copper      off
+  - element scandium    off
+  - element boron       off
+  - element beryllium   off
+  - element argon       off
+abund:
+  He: -12.0
+  C: -12.0
+  N: -12.0
+  O: -12.0
+  Ne: -12.0
+  S: -12.0
+  Ar: -12.0
+  Fe: -12.0
+  Cl: -12.0

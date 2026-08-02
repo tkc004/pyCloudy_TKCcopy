@@ -1,0 +1,42 @@
+options:
+  - case b
+  - no molecules
+  - no level2 lines
+  - no fine opacities
+  - atom h-like levels small
+  - atom he-like levels small
+  - element limit off -13
+  - print line optical depth
+  - element sulphur     off
+  - element chlorine    off
+  - element sodium      off
+  - element lithium     off
+  - element calcium     off
+  - element manganese   off
+  - element aluminum    off
+  - element phosphorus  off
+  - element potassium   off
+  - element titanium    off
+  - element chromium    off
+  - element nickel      off
+  - element zinc        off
+  - element cobalt      off
+  - element fluorine    off
+  - element vanadium    off
+  - element copper      off
+  - element scandium    off
+  - element boron       off
+  - element beryllium   off
+  - element argon       off
+massfrac:
+  H: 0.70649785
+  He: 0.28055534
+  C: 2.0665436e-3
+  N: 8.3562563e-4
+  O: 5.4926244e-3
+  Ne: 1.4144605e-3
+  S: 6.825874e-4
+  Ar: 0.0
+  Fe: 1.1032152e-3
+  Cl: 0.0
+  Mg: 5.907064e-4

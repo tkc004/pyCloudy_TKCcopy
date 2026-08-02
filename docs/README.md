@@ -124,6 +124,8 @@ print(c3d.get_emis_list())
 See [`API.md`](API.md) for a compact reference to the main public classes and
 helpers exported by the package.
 
+See [`CloudyInput.md`](CloudyInput.md) for the full `CloudyInput` method reference.
+
 ## Working With Cloudy
 
 pyCloudy_TKCcopy expects a local Cloudy executable. You can set it in either of these

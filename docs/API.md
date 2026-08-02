@@ -4,6 +4,8 @@ This page summarizes the main public objects exposed by `pyCloudy_TKCcopy`.
 It is intentionally compact and points to the most commonly used classes and
 helpers. For implementation details, see the source files in `pyCloudy/`.
 
+For a detailed `CloudyInput` method reference, see [CloudyInput.md](CloudyInput.md).
+
 ## Top-Level Imports
 
 The package root exports the most common entry points:
@@ -27,6 +29,10 @@ The package root exports the most common entry points:
 ### `CloudyInput`
 
 Create Cloudy input files and optionally run Cloudy.
+
+Detailed reference:
+
+- [CloudyInput.md](CloudyInput.md)
 
 Common methods:
 
@@ -211,4 +217,3 @@ If you want the full implementation details, start here:
 - `pyCloudy/utils/physics.py`
 - `pyCloudy/utils/red_corr.py`
 - `pyCloudy/utils/astro.py`
-
