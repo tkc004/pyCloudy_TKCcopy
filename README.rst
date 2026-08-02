@@ -231,8 +231,7 @@ in this order:
 Building the documentation
 --------------------------
 
-This repository uses a static documentation site in ``docs/`` and publishes it
-with GitHub Pages through ``.github/workflows/docs-pages.yml``.
+The local documentation entry point lives in ``docs/``.
 
 To preview the docs locally, open ``docs/index.html`` in a browser or serve the
 folder with a simple HTTP server:
