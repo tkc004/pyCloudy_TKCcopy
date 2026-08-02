@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[1]:
 
 
 import numpy as np
@@ -13,7 +12,6 @@ import pyCloudy as pc
 print(pc.__version__)
 
 
-# In[2]:
 
 
 script_dir = Path(__file__).resolve().parent
@@ -28,7 +26,6 @@ if cloudy_exe is None:
 pc.config.cloudy_exe = str(cloudy_exe)
 
 
-# In[4]:
 
 
 temp_model_dir = script_dir / 'temp_models'
@@ -37,7 +34,6 @@ dir_ = str(temp_model_dir) + '/'
 pc.print_make_file(dir_)
 
 
-# In[5]:
 
 
 def set_models(dir_, model_name):
@@ -80,7 +76,6 @@ def set_models(dir_, model_name):
         model.print_input(to_file = True, verbose = False)
 
 
-# In[6]:
 
 
 def def_profiles(m3d):
@@ -91,7 +86,6 @@ def def_profiles(m3d):
     m3d.config_profile(size_spectrum = 51, vel_max = 50, v_turb = 0.01)    
 
 
-# In[7]:
 
 
 def def_profiles_user(m3d):
@@ -132,7 +126,6 @@ def def_profiles_user(m3d):
     m3d.config_profile(size_spectrum = 41, vel_max = 25, profile_function = Hb_prof, v_turb = 0.01)
 
 
-# In[8]:
 
 
 def plot_profiles(m3d, x_pos, y_pos):
@@ -142,7 +135,6 @@ def plot_profiles(m3d, x_pos, y_pos):
     plt.legend()
 
 
-# In[9]:
 
 
 def other_plots(m3d, proj_axis):
@@ -205,7 +197,6 @@ def other_plots(m3d, proj_axis):
     plt.contour(V,levels=[1.0])
 
 
-# In[10]:
 
 
 model_name = "M3D_1"
@@ -213,7 +204,6 @@ pc.log_.calling = 'Model3D : ' + model_name
 pc.log_.level = 3
 
 
-# In[11]:
 
 
 dim = 101
@@ -221,53 +211,45 @@ n_cut = int((dim-1) /2)
 proj_axis = 0
 
 
-# In[12]:
 
 
 set_models(dir_, model_name)
 
 
-# In[13]:
 
 
 pc.print_make_file(dir_ = dir_)
 pc.run_cloudy(dir_ = dir_, n_proc = 6, model_name = model_name, use_make = True)
 
 
-# In[14]:
 
 
 liste_of_models = pc.load_models('{0}/{1}'.format(dir_, model_name), list_elem=['H', 'He', 'C', 'N', 'O', 'Ar', 'Ne'],  
                                            read_cont = False, read_grains = False)
 
 
-# In[15]:
 
 
 M=liste_of_models[0]
 M.emis_labels
 
 
-# In[16]:
 
 
 m3d = pc.C3D(liste_of_models, dims = [dim, dim, dim], angles = [45,45,0], plan_sym = True)
 
 
-# In[17]:
 
 
 def_profiles(m3d)
 
 
-# In[18]:
 
 
 plt.figure(figsize=(10,10))
 plot_profiles(m3d, 55, 55)
 
 
-# In[19]:
 
 
 plt.figure(figsize=(10,10))
@@ -276,14 +258,12 @@ def_profiles_user(m3d)
 plt.plot(m3d.vel_tab,m3d.get_profile('H__1_486132A', axis='x')[:,55,55] * 5, ':b', label = r'H$\beta$')
 
 
-# In[20]:
 
 
 plt.figure(figsize=(15,15))
 other_plots(m3d, proj_axis)
 
 
-# In[21]:
 
 
 im = m3d.get_RGB(list_emis = ['N__2_658345A', 'O__3_500684A', 'H__1_486132A'])
@@ -291,7 +271,6 @@ plt.figure(1, figsize=(10,10))
 plt.imshow(im)
 
 
-# In[22]:
 
 
 im = m3d.get_RGB(list_emis = ['N__2_658345A', 'O__3_500684A', 'H__1_486132A'])
@@ -300,7 +279,6 @@ plt.imshow(im)
 m3d.plot_profiles(ref = 3, i_fig = 1, Nx=20, Ny=20)
 
 
-# In[34]:
 
 
 f, ax = plt.subplots()

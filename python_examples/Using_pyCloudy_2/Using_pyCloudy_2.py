@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[1]:
 
 
 import numpy as np
@@ -12,15 +11,15 @@ home_dir = os.environ['HOME'] + '/'
 script_dir = Path(__file__).resolve().parent
 temp_model_dir = script_dir / 'temp_models'
 temp_model_dir.mkdir(exist_ok=True)
+fig_dir = script_dir / 'figures'
+fig_dir.mkdir(exist_ok=True)
 
 
-# In[2]:
 
 
 import pyCloudy as pc
 
 
-# In[3]:
 
 
 # Changing the location and version of the cloudy executable.
@@ -35,7 +34,6 @@ if cloudy_exe is None:
 pc.config.cloudy_exe = str(cloudy_exe)
 
 
-# In[4]:
 
 
 # We define a function that will manage the input files of Cloudy. 
@@ -94,7 +92,6 @@ def make_model(dir_, model_name, dens, ab_O):
         c_input.print_input(to_file = True, verbose = False)
 
 
-# In[5]:
 
 
 # The directory in which we will have the model
@@ -103,28 +100,24 @@ def make_model(dir_, model_name, dens, ab_O):
 dir_ = str(temp_model_dir) + '/'
 
 
-# In[6]:
 
 
 #writing the makefile in the directory dir_
 pc.print_make_file(dir_ = dir_)
 
 
-# In[7]:
 
 
 # setting verbosity to medium level, change to 3 for high verbosity
 pc.log_.level = 2
 
 
-# In[8]:
 
 
 # Generic name of the models
 model_name = 'model_2'
 
 
-# In[9]:
 
 
 # tables for the values of the density and the log(O/H)
@@ -132,7 +125,6 @@ tab_dens = [3, 4, 5, 6]
 tab_ab_O = [-3.1, -3.25, -3.4, -3.55, -3.7]
 
 
-# In[10]:
 
 
 # defining the models and writing 20 input files
@@ -141,7 +133,6 @@ for dens in tab_dens:
         make_model(dir_, model_name, dens, ab_O)
 
 
-# In[11]:
 
 
 # Running the models using the makefile and n_proc processors
@@ -151,14 +142,12 @@ n_proc = 8
 pc.run_cloudy(dir_ = dir_, n_proc = n_proc, model_name = model_name, use_make = True)
 
 
-# In[12]:
 
 
 # reading the Cloudy outputs and putting them in a list of CloudyModel objects
 Ms = pc.load_models('{0}{1}'.format(dir_, model_name), read_grains = False)
 
 
-# In[13]:
 
 
 #Computing line intensity ratios 
@@ -166,14 +155,12 @@ rO3 = [np.log10(M.get_emis_vol('O__3_500684A')/M.get_emis_vol('O__3_436321A')) f
 rO2 = [np.log10(M.get_emis_vol('O__2_372603A')/M.get_emis_vol('O__2_372881A')) for M in Ms]
 
 
-# In[14]:
 
 
 # defining the colors associated to the Oxygen abundances
 col = [M.abund['O'] for M in Ms]
 
 
-# In[15]:
 
 
 # defining the size as the density (at the first step, but in these models it's constant)
@@ -181,7 +168,6 @@ col = [M.abund['O'] for M in Ms]
 size = [40*(5+M.log_U_mean) for M in Ms]
 
 
-# In[16]:
 
 
 plt.figure(figsize=(10,10))
@@ -191,8 +177,6 @@ plt.ylabel('log [OIII] 5007/4363')
 cb = plt.colorbar()
 cb.set_label('log(O/H)')
 plt.title('Size -> logU');
-
-
-# In[ ]:
+plt.gcf().savefig(fig_dir / 'diagnostic_diagram.png', dpi=150, bbox_inches='tight')
 
 

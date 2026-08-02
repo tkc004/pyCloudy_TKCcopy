@@ -6,7 +6,6 @@
 # It is possible to extract from the Cloudy model the electron temperature and density and the ionic fractions to re-compute at each zone of the nebula the emissivities of the lines, using the PyNeb code.
 # This is NOT coherent in the fact that changing the line emissivities change the cooling and then the electron temeprature. And only collisional effects are taken into account. But this can nevertheless helps to understand the effect of choosing one set of atomic data or another one in the analysis of a nebula.
 
-# In[1]:
 
 
 import numpy as np
@@ -28,21 +27,18 @@ if cloudy_exe is None:
 pc.config.cloudy_exe = str(cloudy_exe)
 
 
-# In[2]:
 
 
 # We are using the model from the example 1
 Mod = pc.CloudyModel(str(script_dir.parent / 'Using_pyCloudy_1' / 'temp_models' / 'model_1'))
 
 
-# In[3]:
 
 
 # Print some data about the model
 Mod.print_stats()
 
 
-# In[8]:
 
 
 # Print all the different atomic data avilable in Pyneb for the [OIII] lines
@@ -51,7 +47,6 @@ print('--------------------------------------------------')
 print(pn.atomicData.getAllAvailableFiles('O3',data_type='coll', mark_current=False))
 
 
-# In[10]:
 
 
 pc.log_.level=1
@@ -72,7 +67,6 @@ ax.legend(loc=3)
 ax.set_ylim((0., 600));
 
 
-# In[11]:
 
 
 pc.log_.level=1
@@ -93,13 +87,11 @@ ax.legend(loc=3)
 ax.set_ylim((0., 600));
 
 
-# In[6]:
 
 
 Mod.emis_labels
 
 
-# In[12]:
 
 
 pc.log_.level=1
@@ -123,7 +115,6 @@ for O3_atom in pn.atomicData.getAllAvailableFiles('O3',data_type='atom', mark_cu
     i += 1
 
 
-# In[13]:
 
 
 print(pn.atomicData.getAllAvailableFiles('S2',data_type='atom', mark_current=False))
@@ -131,7 +122,6 @@ print('--------------------------------------------------')
 print(pn.atomicData.getAllAvailableFiles('S2',data_type='coll', mark_current=False))
 
 
-# In[14]:
 
 
 i = 0
@@ -148,7 +138,6 @@ ax.set_ylabel('[SII] 6716/6731')
 ax.legend(loc=2);
 
 
-# In[15]:
 
 
 i = 0

@@ -3,7 +3,6 @@
 
 # # How to take account of the slit position when computing line intensities (even for a spherical nebula)
 
-# In[1]:
 
 
 import numpy as np
@@ -13,7 +12,6 @@ from pathlib import Path
 home_dir = os.environ['HOME'] + '/'
 
 
-# In[2]:
 
 
 import pyCloudy as pc
@@ -31,7 +29,6 @@ pc.config.cloudy_exe = str(cloudy_exe)
 from pyCloudy.utils.astro import conv_arc
 
 
-# In[3]:
 
 
 # The directory in which we will have the model
@@ -42,7 +39,6 @@ temp_model_dir.mkdir(exist_ok=True)
 dir_ = str(temp_model_dir) + '/'
 
 
-# In[4]:
 
 
 # Define some parameters of the model:
@@ -55,7 +51,6 @@ r_min = 5e16 #cm
 dist = 1.26 #kpc
 
 
-# In[5]:
 
 
 # these are the commands common to all the models (here only one ...)
@@ -64,7 +59,6 @@ options = ('no molecules',
             )
 
 
-# In[6]:
 
 
 emis_tab = ['H  1  4861.32A',
@@ -87,21 +81,18 @@ emis_tab = ['H  1  4861.32A',
             'C  2  157.636m']
 
 
-# In[7]:
 
 
 abund = {'He' : -0.92, 'C' : 6.85 - 12, 'N' : -4.0, 'O' : -3.40, 'Ne' : -4.00, 
          'S' : -5.35, 'Ar' : -5.80, 'Fe' : -7.4, 'Cl' : -7.00}
 
 
-# In[8]:
 
 
 # Defining the object that will manage the input file for Cloudy
 c_input = pc.CloudyInput(full_model_name)
 
 
-# In[9]:
 
 
 # Filling the object with the parameters
@@ -110,14 +101,12 @@ c_input = pc.CloudyInput(full_model_name)
 c_input.set_BB(Teff = Teff, lumi_unit = 'q(H)', lumi_value = qH)
 
 
-# In[10]:
 
 
 # Defining the density. You may also use set_dlaw(parameters) if you have a density law defined in dense_fabden.cpp.
 c_input.set_cste_density(dens)
 
 
-# In[11]:
 
 
 # Defining the inner radius. A second parameter would be the outer radius (matter-bounded nebula).
@@ -130,14 +119,12 @@ c_input.set_emis_tab(emis_tab) # better use read_emis_file(file) for long list o
 c_input.set_distance(dist=dist, unit='kpc', linear=True) # unit can be 'kpc', 'Mpc', 'parsecs', 'cm'. If linear=False, the distance is in log.
 
 
-# In[12]:
 
 
 # Writing the Cloudy inputs. to_file for writing to a file (named by full_model_name). verbose to print on the screen.
 c_input.print_input(to_file = True, verbose = False)
 
 
-# In[13]:
 
 
 # Running Cloudy with a timer. Here we reset it to 0.
@@ -146,14 +133,12 @@ c_input.run_cloudy()
 pc.log_.timer('Cloudy ended after seconds:', calling = 'test1')
 
 
-# In[14]:
 
 
 c_output = pc.CloudyModel(full_model_name)
 c_output.print_stats()
 
 
-# In[15]:
 
 
 # define the size of the 3D cube and instanciate the object that manage it.
@@ -161,21 +146,18 @@ cube_size = 201
 M_sphere = pc.C3D(c_output, dims=cube_size, center=True, n_dim=1)
 
 
-# In[16]:
 
 
 # plot the image of the OIII emission
 plt.imshow(M_sphere.get_emis('O__3_500684A').sum(0));
 
 
-# In[17]:
 
 
 # A function in form of lambda to transform size in cm into arcsec, for a distance "dist" defined above.
 arcsec = lambda cm: conv_arc(dist=dist, dist_proj=cm)
 
 
-# In[18]:
 
 
 def make_mask(ap_center=[0., 0.], ap_size=[1., 1.]):
@@ -196,14 +178,12 @@ def make_mask(ap_center=[0., 0.], ap_size=[1., 1.]):
     return mask
 
 
-# In[19]:
 
 
 # we define the mask. Can be change to see the effect of the aperture on line intensities
 mask = make_mask(ap_center=[1.5, 2.3], ap_size=[50, 1.5])
 
 
-# In[20]:
 
 
 # Check that the mask is not empty
@@ -211,7 +191,6 @@ print(mask.size)
 print(mask.sum())
 
 
-# In[21]:
 
 
 # We plot the OIII image and overplot the mask.
@@ -220,7 +199,6 @@ plt.colorbar()
 plt.contour(mask);
 
 
-# In[22]:
 
 
 # Hbeta is computed for the whole object and throught the aperture
@@ -229,7 +207,6 @@ Hb_slit = ((M_sphere.get_emis('H__1_486132A')*M_sphere.cub_coord.cell_size).sum(
 print(Hb_tot, Hb_slit)
 
 
-# In[23]:
 
 
 # For every line, we compute the intensity for the whole object and throught the aperture.

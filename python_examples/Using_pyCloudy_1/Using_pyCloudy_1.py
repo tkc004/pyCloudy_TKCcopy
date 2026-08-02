@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[1]:
 
 
 import numpy as np
@@ -10,22 +9,21 @@ import os
 from pathlib import Path
 home_dir = os.environ['HOME'] + '/'
 script_dir = Path(__file__).resolve().parent
+fig_dir = script_dir / 'figures'
+fig_dir.mkdir(exist_ok=True)
 
 
-# In[2]:
 
 
 import pyCloudy as pc
 
 
-# In[3]:
 
 
 # Define verbosity to high level (will print errors, warnings and messages)
 pc.log_.level = 3
 
 
-# In[4]:
 
 
 # The directory in which we will have the model
@@ -35,7 +33,6 @@ dir_ = script_dir / 'temp_models'
 dir_.mkdir(exist_ok=True)
 
 
-# In[5]:
 
 
 # Define some parameters of the model:
@@ -48,7 +45,6 @@ r_min = 5e17 #cm
 dist = 1.26 #kpc
 
 
-# In[6]:
 
 
 # these are the commands common to all the models (here only one ...)
@@ -63,7 +59,6 @@ options = ('no molecules',
             )
 
 
-# In[7]:
 
 
 emis_tab_c13 = ['H  1  4861',
@@ -84,7 +79,6 @@ emis_tab_c13 = ['H  1  4861',
             'C  2 157.6m']
 
 
-# In[ ]:
 
 
 emis_tab_17 = ['H  1  4861.33A',
@@ -105,7 +99,6 @@ emis_tab_17 = ['H  1  4861.33A',
             'C  2  157.636m']
 
 
-# In[24]:
 
 
 emis_tab = ['H  1  4861.32A',
@@ -128,21 +121,18 @@ emis_tab = ['H  1  4861.32A',
             'C  2  157.636m']
 
 
-# In[25]:
 
 
 abund = {'He' : -0.92, 'C' : 6.85 - 12, 'N' : -4.0, 'O' : -3.40, 'Ne' : -4.00, 
          'S' : -5.35, 'Ar' : -5.80, 'Fe' : -7.4, 'Cl' : -7.00}
 
 
-# In[26]:
 
 
 # Defining the object that will manage the input file for Cloudy
 c_input = pc.CloudyInput(full_model_name)
 
 
-# In[27]:
 
 
 # Filling the object with the parameters
@@ -151,14 +141,12 @@ c_input = pc.CloudyInput(full_model_name)
 c_input.set_BB(Teff = Teff, lumi_unit = 'q(H)', lumi_value = qH)
 
 
-# In[28]:
 
 
 # Defining the density. You may also use set_dlaw(parameters) if you have a density law defined in dense_fabden.cpp.
 c_input.set_cste_density(dens)
 
 
-# In[29]:
 
 
 # Defining the inner radius. A second parameter would be the outer radius (matter-bounded nebula).
@@ -171,21 +159,18 @@ c_input.set_emis_tab(emis_tab) # better use read_emis_file(file) for long list o
 c_input.set_distance(dist=dist, unit='kpc', linear=True) # unit can be 'kpc', 'Mpc', 'parsecs', 'cm'. If linear=False, the distance is in log.
 
 
-# In[30]:
 
 
 # Writing the Cloudy inputs. to_file for writing to a file (named by full_model_name). verbose to print on the screen.
 c_input.print_input(to_file = True, verbose = False)
 
 
-# In[31]:
 
 
 # Printing some message to the screen
 pc.log_.message('Running {0}'.format(model_name), calling = 'test1')
 
 
-# In[32]:
 
 
 # Tell pyCloudy where your cloudy executable is:
@@ -200,7 +185,6 @@ if cloudy_exe is None:
 pc.config.cloudy_exe = str(cloudy_exe)
 
 
-# In[33]:
 
 
 # Running Cloudy with a timer. Here we reset it to 0.
@@ -209,14 +193,12 @@ c_input.run_cloudy()
 pc.log_.timer('Cloudy ended after seconds:', calling = 'test1')
 
 
-# In[34]:
 
 
 # Reading the Cloudy outputs in the Mod CloudyModel object
 Mod = pc.CloudyModel(full_model_name)
 
 
-# In[35]:
 
 
 # Use TAB to know all the methods and variables for CloudyModel class
@@ -225,77 +207,66 @@ dir(Mod) # This is the online answering way
 # Description of this class is available here: http://pythonhosted.org//pyCloudy/classpy_cloudy_1_1c1d_1_1cloudy__model_1_1_cloudy_model.html
 
 
-# In[36]:
 
 
 Mod.print_stats()
 
 
-# In[37]:
 
 
 Mod.print_lines()
 
 
-# In[38]:
 
 
 Mod.get_ab_ion_vol_ne('O',2)
 
 
-# In[39]:
 
 
 Mod.get_T0_ion_vol_ne('O', 2)
 
 
-# In[40]:
 
 
 Mod.log_U_mean
 
 
-# In[41]:
 
 
 Mod.log_U_mean_ne
 
 
-# In[42]:
 
 
 print('T0 = {0:7.1f}K, t2 = {1:6.4f}'.format(Mod.T0, Mod.t2))
 
 
-# In[43]:
 
 
 print('Hbeta Equivalent width = {0:6.1f}, Hbeta Surface Brightness = {1:4.2e}'.format(Mod.get_Hb_EW(), Mod.get_Hb_SB()))
 
 
-# In[44]:
 
 
 Mod.emis_labels
 
 
-# In[45]:
 
 
 # printing line intensities
 for line in Mod.emis_labels:
-    print('{0} {1:10.3e} {2:7.2f}'.format(line, Mod.get_emis_vol(line), Mod.get_emis_vol(line) / Mod.get_emis_vol('H__1_486133A') * 100.))
+    print('{0} {1:10.3e} {2:7.2f}'.format(line, Mod.get_emis_vol(line), Mod.get_emis_vol(line) / Mod.get_emis_vol('H__1_486132A') * 100.))
 
 
-# In[46]:
 
 
 plt.figure(figsize=(10,10))
 plt.plot(Mod.radius, Mod.te, label = 'Te')
 plt.legend(loc=3);
+plt.gcf().savefig(fig_dir / 'temperature_profile.png', dpi=150, bbox_inches='tight')
 
 
-# In[50]:
 
 
 plt.figure(figsize=(10,10))
@@ -303,9 +274,9 @@ plt.plot(Mod.radius, Mod.get_emis('H__1_486132A'), label = r'H$\beta$')
 plt.plot(Mod.radius, Mod.get_emis('O__3_500684A'), label = '[OIII]')
 plt.plot(Mod.radius, Mod.get_emis('N__2_658345A'), label = '[NII]')
 plt.legend();
+plt.gcf().savefig(fig_dir / 'emissivity_profiles.png', dpi=150, bbox_inches='tight')
 
 
-# In[51]:
 
 
 plt.figure(figsize=(10,10))
@@ -313,9 +284,9 @@ plt.plot(Mod.radius, Mod.get_ionic('H', 1), label = 'H+')
 plt.plot(Mod.radius, Mod.get_ionic('O', 1), label = 'O+')
 plt.plot(Mod.radius, Mod.get_ionic('O', 2), label = 'O++')
 plt.legend(loc=3);
+plt.gcf().savefig(fig_dir / 'ionic_fractions.png', dpi=150, bbox_inches='tight')
 
 
-# In[52]:
 
 
 plt.figure(figsize=(10,10))
@@ -323,9 +294,9 @@ plt.scatter(Mod.te/1e3, Mod.ne/1e4, c = Mod.depth/np.max(Mod.depth), edgecolors 
 plt.colorbar()
 plt.xlabel('Te [kK]')
 plt.ylabel(r'Ne [$10^4$ cm$^{-3}$]');
+plt.gcf().savefig(fig_dir / 'te_ne_scatter.png', dpi=150, bbox_inches='tight')
 
 
-# In[53]:
 
 
 plt.figure(figsize=(10,10))
@@ -337,3 +308,4 @@ plt.ylim((1e-9, 1e1))
 plt.xlabel('Angstrom')
 plt.ylabel('Jy')
 plt.legend(loc=4);
+plt.gcf().savefig(fig_dir / 'continuum.png', dpi=150, bbox_inches='tight')

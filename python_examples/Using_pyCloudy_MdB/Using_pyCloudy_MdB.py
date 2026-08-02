@@ -5,7 +5,6 @@
 
 # The dabase is 3MdB, described here: https://sites.google.com/site/mexicanmillionmodels/the-different-projects/hii_chim
 
-# In[ ]:
 
 
 import numpy as np
@@ -15,7 +14,6 @@ import pandas as pd
 from sqlalchemy import create_engine
 
 
-# In[2]:
 
 
 # Defining the connection parameters.
@@ -26,7 +24,6 @@ passwd = os.environ['MdB_PASSWD']
 db=os.environ['MdB_DB_17']    
 
 
-# In[4]:
 
 
 request = """SELECT
@@ -47,19 +44,16 @@ with sqlEngine.connect() as db_con:
     res = pd.read_sql(request, con=db_con)
 
 
-# In[5]:
 
 
 print(len(res))
 
 
-# In[6]:
 
 
 res
 
 
-# In[7]:
 
 
 plt.figure(figsize=(10, 8))
@@ -70,7 +64,6 @@ cb = plt.colorbar()
 cb.set_label('logU');
 
 
-# In[8]:
 
 
 plt.figure(figsize=(10, 8))
@@ -81,14 +74,12 @@ cb = plt.colorbar()
 cb.set_label('O/H');
 
 
-# In[13]:
 
 
 res = pd.read_sql("SELECT count(*) as N FROM tab_17 WHERE ref like 'PNe_2020'", con=co)
 print("Total number of models with ref='PNe_2020': {}".format(res.N.values[0]))
 
 
-# In[19]:
 
 
 # Query the database
@@ -114,19 +105,16 @@ with sqlEngine.connect() as db_con:
     res = pd.read_sql(request, con=db_con)
 
 
-# In[17]:
 
 
 print(request)
 
 
-# In[20]:
 
 
 print(len(res))
 
 
-# In[21]:
 
 
 plt.figure(figsize=(10, 8))
@@ -136,4 +124,3 @@ plt.xlabel(r'O$^{++}$/(O$^+$+O$^{++}$)')
 plt.ylabel(r'log ICF$_{th}$(N$^+$/O$^+$)')
 cb = plt.colorbar()
 cb.set_label('Stellar Temperature')
-
