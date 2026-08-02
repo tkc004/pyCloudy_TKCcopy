@@ -228,6 +228,26 @@ in this order:
 5. ``Using_pyCloudy_with_PyNeb.ipynb``
 6. ``Using_pyCloudy_MdB.ipynb``
 
+Building the documentation
+--------------------------
+
+This repository uses a static documentation site in ``docs/`` and publishes it
+with GitHub Pages through ``.github/workflows/docs-pages.yml``.
+
+To preview the docs locally, open ``docs/index.html`` in a browser or serve the
+folder with a simple HTTP server:
+
+.. code-block:: bash
+
+   python -m http.server --directory docs 8000
+
+Then visit ``http://localhost:8000``.
+
+The bundled notebook examples live in ``pyCloudy/docs/`` and the exported
+Python versions live in ``python_examples/``. If you update or add notebooks,
+regenerate the Python scripts with ``jupyter nbconvert`` and update the links in
+the docs if needed.
+
 Testing
 -------
 

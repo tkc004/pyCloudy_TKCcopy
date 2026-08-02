@@ -119,6 +119,11 @@ c3d = pc.C3D(models, dims=51)
 print(c3d.get_emis_list())
 ```
 
+## API Reference
+
+See [`API.md`](API.md) for a compact reference to the main public classes and
+helpers exported by the package.
+
 ## Working With Cloudy
 
 pyCloudy_TKCcopy expects a local Cloudy executable. You can set it in either of these
@@ -155,6 +160,25 @@ pytest
 Some tests may require a local Cloudy installation. If you are working on a
 machine with a different Cloudy path, update the executable path before running
 the tests.
+
+## Building The Documentation
+
+This repository uses a static docs site in `docs/` and publishes it with GitHub
+Pages through `.github/workflows/docs-pages.yml`.
+
+To preview the docs locally, open `docs/index.html` in a browser or serve the
+folder with:
+
+```bash
+python -m http.server --directory docs 8000
+```
+
+Then visit `http://localhost:8000`.
+
+The bundled notebook examples live in `pyCloudy/docs/` and the exported Python
+versions live in `python_examples/`. If you update or add notebooks, regenerate
+the Python scripts with `jupyter nbconvert` and refresh the docs links if
+needed.
 
 ## Notes
 
