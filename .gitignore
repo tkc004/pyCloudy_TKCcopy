@@ -18,7 +18,5 @@ model_1.*
 Cloudy_exe/
 **/temp_models/
 **/output.txt
-python_examples/shocks/figures/
-python_examples/*/figures/
 __pycache__/
 .pytest_cache
