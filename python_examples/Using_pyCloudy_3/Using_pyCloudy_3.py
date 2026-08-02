@@ -7,6 +7,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import os
+from pathlib import Path
 home_dir = os.environ['HOME'] + '/'
 import pyCloudy as pc
 print(pc.__version__)
@@ -15,13 +16,24 @@ print(pc.__version__)
 # In[2]:
 
 
-pc.config.cloudy_exe = '/usr/local/Cloudy/c25.00_rc2/source/cloudy.exe'
+script_dir = Path(__file__).resolve().parent
+cloudy_exe = None
+for base_dir in (script_dir, *script_dir.parents):
+    candidate = base_dir / 'Cloudy_exe' / 'Cloudy' / 'c22.02' / 'source' / 'cloudy.exe'
+    if candidate.exists():
+        cloudy_exe = candidate
+        break
+if cloudy_exe is None:
+    raise FileNotFoundError('Could not find Cloudy_exe/Cloudy/c22.02/source/cloudy.exe')
+pc.config.cloudy_exe = str(cloudy_exe)
 
 
 # In[4]:
 
 
-dir_ = '/tmp/models/'
+temp_model_dir = script_dir / 'temp_models'
+temp_model_dir.mkdir(exist_ok=True)
+dir_ = str(temp_model_dir) + '/'
 pc.print_make_file(dir_)
 
 
@@ -303,4 +315,3 @@ ax.scatter(np.log10((N2map/Hbmap)[mask]), np.log10((O3map/Hbmap)[mask]))
 ax.scatter(np.log10(N2map[mask].sum()/Hbmap[mask].sum()), np.log10(O3map[mask].sum()/Hbmap[mask].sum()), marker='*', s=200, color='red')
 ax.set_xlabel('log10([NII]/Hb)')
 ax.set_ylabel('log10([OIII/Hb)');
-

@@ -7,7 +7,9 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import os
+from pathlib import Path
 home_dir = os.environ['HOME'] + '/'
+script_dir = Path(__file__).resolve().parent
 
 
 # In[2]:
@@ -29,7 +31,8 @@ pc.log_.level = 3
 # The directory in which we will have the model
 # You may want to change this to a different place so that the current directory
 # will not receive all the Cloudy files.
-dir_ = '/tmp/models/'
+dir_ = script_dir / 'temp_models'
+dir_.mkdir(exist_ok=True)
 
 
 # In[5]:
@@ -37,7 +40,7 @@ dir_ = '/tmp/models/'
 
 # Define some parameters of the model:
 model_name = 'model_1'
-full_model_name = '{0}{1}'.format(dir_, model_name)
+full_model_name = str(dir_ / model_name)
 dens = 2. #log cm-3
 Teff = 45000. #K
 qH = 47. #s-1
@@ -186,7 +189,15 @@ pc.log_.message('Running {0}'.format(model_name), calling = 'test1')
 
 
 # Tell pyCloudy where your cloudy executable is:
-pc.config.cloudy_exe = '/usr/local/Cloudy/c25.00_rc2/source/cloudy.exe'
+cloudy_exe = None
+for base_dir in (script_dir, *script_dir.parents):
+    candidate = base_dir / 'Cloudy_exe' / 'Cloudy' / 'c22.02' / 'source' / 'cloudy.exe'
+    if candidate.exists():
+        cloudy_exe = candidate
+        break
+if cloudy_exe is None:
+    raise FileNotFoundError('Could not find Cloudy_exe/Cloudy/c22.02/source/cloudy.exe')
+pc.config.cloudy_exe = str(cloudy_exe)
 
 
 # In[33]:
@@ -326,4 +337,3 @@ plt.ylim((1e-9, 1e1))
 plt.xlabel('Angstrom')
 plt.ylabel('Jy')
 plt.legend(loc=4);
-

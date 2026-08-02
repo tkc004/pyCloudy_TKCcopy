@@ -5,20 +5,29 @@ This directory contains plain Python exports of the example notebooks stored in
 
 ## Source Map
 
-- `Using_pyCloudy_1.py` from `pyCloudy/docs/Using_pyCloudy_1.ipynb`
-- `Using_pyCloudy_2.py` from `pyCloudy/docs/Using_pyCloudy_2.ipynb`
-- `Using_pyCloudy_3.py` from `pyCloudy/docs/Using_pyCloudy_3.ipynb`
-- `Using_pyCloudy_4.py` from `pyCloudy/docs/Using_pyCloudy_4.ipynb`
-- `Using_pyCloudy_MdB.py` from `pyCloudy/docs/Using_pyCloudy_MdB.ipynb`
-- `Using_pyCloudy_with_PyNeb.py` from `pyCloudy/docs/Using_pyCloudy_with_PyNeb.ipynb`
-- `shocks.py` from `pyCloudy/docs/shocks.ipynb`
+Each example lives in its own directory named after the script.
+
+- `Using_pyCloudy_1/Using_pyCloudy_1.py` from `pyCloudy/docs/Using_pyCloudy_1.ipynb`
+- `Using_pyCloudy_2/Using_pyCloudy_2.py` from `pyCloudy/docs/Using_pyCloudy_2.ipynb`
+- `Using_pyCloudy_3/Using_pyCloudy_3.py` from `pyCloudy/docs/Using_pyCloudy_3.ipynb`
+- `Using_pyCloudy_4/Using_pyCloudy_4.py` from `pyCloudy/docs/Using_pyCloudy_4.ipynb`
+- `Using_pyCloudy_MdB/Using_pyCloudy_MdB.py` from `pyCloudy/docs/Using_pyCloudy_MdB.ipynb`
+- `Using_pyCloudy_with_PyNeb/Using_pyCloudy_with_PyNeb.py` from `pyCloudy/docs/Using_pyCloudy_with_PyNeb.ipynb`
+- `shocks/shocks.py` from `pyCloudy/docs/shocks.ipynb`
+- `quickstart/quickstart.py` from the README quickstart example
 
 ## How To Run
 
 Run any example with:
 
 ```bash
-python python_examples/Using_pyCloudy_1.py
+python python_examples/Using_pyCloudy_1/Using_pyCloudy_1.py
+```
+
+For the quickstart example:
+
+```bash
+python python_examples/quickstart/quickstart.py
 ```
 
 Many of the examples expect:

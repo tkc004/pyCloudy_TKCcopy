@@ -12,9 +12,21 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pyCloudy as pc
 import os
-home_dir = os.environ['$HOME'] + '/'
-pc.config.cloudy_exe = home_dir + 'bin/cloudy.exe'
-dir_ = '/tmp/models/'
+from pathlib import Path
+home_dir = str(Path.home()) + '/'
+script_dir = Path(__file__).resolve().parent
+cloudy_exe = None
+for base_dir in (script_dir, *script_dir.parents):
+    candidate = base_dir / 'Cloudy_exe' / 'Cloudy' / 'c22.02' / 'source' / 'cloudy.exe'
+    if candidate.exists():
+        cloudy_exe = candidate
+        break
+if cloudy_exe is None:
+    raise FileNotFoundError('Could not find Cloudy_exe/Cloudy/c22.02/source/cloudy.exe')
+pc.config.cloudy_exe = str(cloudy_exe)
+temp_model_dir = script_dir / 'temp_models'
+temp_model_dir.mkdir(exist_ok=True)
+dir_ = str(temp_model_dir) + '/'
 pc.log_.level = 3
 
 
@@ -204,7 +216,6 @@ ax.plot(xtab, ytab, c='r');
 # ### Obviously, there are some models above the line. They are pure photoionization models. The line is not a good delimiter between shocked and photoionized regions.
 
 # In[ ]:
-
 
 
 

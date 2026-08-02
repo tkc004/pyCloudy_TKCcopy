@@ -9,6 +9,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import os
+from pathlib import Path
 home_dir = os.environ['HOME'] + '/'
 
 
@@ -17,7 +18,16 @@ home_dir = os.environ['HOME'] + '/'
 
 import pyCloudy as pc
 # Changing the location and version of the cloudy executable.
-pc.config.cloudy_exe = '/usr/local/Cloudy/c25.00_rc2/source/cloudy.exe'
+script_dir = Path(__file__).resolve().parent
+cloudy_exe = None
+for base_dir in (script_dir, *script_dir.parents):
+    candidate = base_dir / 'Cloudy_exe' / 'Cloudy' / 'c22.02' / 'source' / 'cloudy.exe'
+    if candidate.exists():
+        cloudy_exe = candidate
+        break
+if cloudy_exe is None:
+    raise FileNotFoundError('Could not find Cloudy_exe/Cloudy/c22.02/source/cloudy.exe')
+pc.config.cloudy_exe = str(cloudy_exe)
 from pyCloudy.utils.astro import conv_arc
 
 
@@ -27,7 +37,9 @@ from pyCloudy.utils.astro import conv_arc
 # The directory in which we will have the model
 # You may want to change this to a different place so that the current directory
 # will not receive all the Cloudy files.
-dir_ = '/tmp/models/'
+temp_model_dir = script_dir / 'temp_models'
+temp_model_dir.mkdir(exist_ok=True)
+dir_ = str(temp_model_dir) + '/'
 
 
 # In[4]:
@@ -227,4 +239,3 @@ for label in M_sphere.m[0].emis_labels:
     I_slit = ((M_sphere.get_emis(label).sum(1) * mask).sum()*M_sphere.cub_coord.cell_size) / Hb_slit
     print('line: {0:12s} I/Ib Total: {1:6.4f} I/Ib Slit: {2:6.4f} Delta: {3:4.1f}%'.format(label, I_tot, I_slit, 
                                                                                            (I_slit-I_tot)/I_tot*100))
-

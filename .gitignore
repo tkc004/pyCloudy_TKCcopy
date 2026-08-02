@@ -15,3 +15,6 @@ tips.txt
 .dropbox
 .DS_Store
 model_1.*
+Cloudy_exe/
+**/temp_models/
+**/output.txt

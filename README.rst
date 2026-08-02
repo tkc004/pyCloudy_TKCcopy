@@ -100,6 +100,11 @@ Create and run a model:
 
    import pyCloudy as pc
 
+   emis_tab = [
+       "H  1  4861.33A",
+       "O  3  5006.84A",
+   ]
+
    pc.config.cloudy_exe = "/usr/local/Cloudy/c23.01/source/cloudy.exe"
 
    c_input = pc.CloudyInput("models/M17")
@@ -109,6 +114,7 @@ Create and run a model:
    c_input.set_abund(predef="ism")
    c_input.set_sphere(True)
    c_input.set_iterate()
+   c_input.set_emis_tab(emis_tab)
    c_input.set_distance(dist=1.0, unit="kpc", linear=True)
    c_input.print_input(to_file=True)
    c_input.run_cloudy()

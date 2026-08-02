@@ -14,15 +14,25 @@ import matplotlib.pyplot as plt
 import pyCloudy as pc
 import pyneb as pn
 import os
+from pathlib import Path
 home_dir = os.environ['HOME'] + '/'
-pc.config.cloudy_exe = '/usr/local/Cloudy/c25.00_rc2/source/cloudy.exe'
+script_dir = Path(__file__).resolve().parent
+cloudy_exe = None
+for base_dir in (script_dir, *script_dir.parents):
+    candidate = base_dir / 'Cloudy_exe' / 'Cloudy' / 'c22.02' / 'source' / 'cloudy.exe'
+    if candidate.exists():
+        cloudy_exe = candidate
+        break
+if cloudy_exe is None:
+    raise FileNotFoundError('Could not find Cloudy_exe/Cloudy/c22.02/source/cloudy.exe')
+pc.config.cloudy_exe = str(cloudy_exe)
 
 
 # In[2]:
 
 
 # We are using the model from the example 1
-Mod = pc.CloudyModel('/tmp/models/model_1')
+Mod = pc.CloudyModel(str(script_dir.parent / 'Using_pyCloudy_1' / 'temp_models' / 'model_1'))
 
 
 # In[3]:
@@ -147,4 +157,3 @@ for S2_atom in pn.atomicData.getAllAvailableFiles('S2',data_type='atom', mark_cu
     dens = S2.getTemDen(dens_diag, tem=1e4, wave1=6716, wave2=6731)
     print('{0:27s} [SII]6716/31 {1:5.3f}, density = {2:5.1f}'.format(S2_atom, dens_diag, dens))
     i += 1
-
