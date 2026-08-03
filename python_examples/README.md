@@ -14,6 +14,7 @@ Each example lives in its own directory named after the script.
 - `Using_pyCloudy_MdB/Using_pyCloudy_MdB.py` from `pyCloudy/docs/Using_pyCloudy_MdB.ipynb`
 - `Using_pyCloudy_with_PyNeb/Using_pyCloudy_with_PyNeb.py` from `pyCloudy/docs/Using_pyCloudy_with_PyNeb.ipynb`
 - [`Using_pyCloudy_3_spherical_profiles`](../docs/Using_pyCloudy_3_spherical_profiles.md): spherical `Using_pyCloudy_3` example driven by an external radial profile CSV
+- [`Using_pyCloudy_3_spherical_profiles_rhd`](../docs/Using_pyCloudy_3_spherical_profiles_rhd.md): RHD-profile variant using `radial_profile_rhd.csv` and an ionizing photon rate of `10^49 s^-1`
 - `shocks/shocks.py` from `pyCloudy/docs/shocks.ipynb`
 - `quickstart/quickstart.py` from the README quickstart example
 

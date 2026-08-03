@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
-"""Spherical pyCloudy model driven by an external radial profile file.
+"""Spherical pyCloudy model driven by an external RHD radial profile file.
 
 The CSV file uses radius in pc, velocity in km/s, and hydrogen density in atom
 cm^-3. Cloudy receives the density profile through ``dlaw table radius``; C3D
@@ -35,9 +35,9 @@ from matplotlib.cm import ScalarMappable
 import pyCloudy as pc
 
 
-PROFILE_FILE = script_dir / "radial_profiles.csv"
+PROFILE_FILE = script_dir / "radial_profile_rhd.csv"
 
-MODEL_NAME = "M3D_spherical_profiles"
+MODEL_NAME = "M3D_spherical_profiles_rhd"
 DIM = 101
 PROJ_AXIS = 0
 EMIS_TAB = [
@@ -149,7 +149,7 @@ def density_table_commands(radius_pc, density_cm3):
 
 def build_model(model_path, radius_pc, density_cm3):
     model = pc.CloudyInput(str(model_path))
-    model.set_BB(80000.0, "q(H)", 47.3)
+    model.set_BB(80000.0, "q(H)", 49.0)
     model.set_grains()
     model.set_radius(r_in=np.log10(radius_pc[0] * pc.CST.PC))
     model.set_stop("radius {0:.8f}".format(np.log10(radius_pc[-1] * pc.CST.PC)))
@@ -373,7 +373,7 @@ plot_profiles(
     m3d,
     n_cut,
     n_cut,
-    "Line profiles: user velocity profile from radial_profiles.csv",
+    "Line profiles: user velocity profile from radial_profile_rhd.csv",
 )
 save_fig(plt.gcf(), fig_dir / "profile_user_velocity.png")
 

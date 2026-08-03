@@ -93,7 +93,7 @@ is the velocity field used to calculate them.
 
 ![Compact RGB image](../python_examples/Using_pyCloudy_3_spherical_profiles/figures/rgb_compact.png)
 
-![RGB image with profiles](../python_examples/Using_pyCloudy_3_spherical_profiles/figures/rgb_with_profiles.png)
+![RGB image with [NII] 6584 line profiles](../python_examples/Using_pyCloudy_3_spherical_profiles/figures/rgb_with_profiles.png)
 
 ### Diagnostic Scatter
 
