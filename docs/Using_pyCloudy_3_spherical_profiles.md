@@ -56,6 +56,9 @@ The velocity profile is interpolated onto the C3D radius grid and converted to
 Cartesian velocity components. The velocity is zero at the origin and is
 held at the final supplied value beyond the last profile point.
 
+For the polynomial velocity-law definition and the meaning of its `params`,
+see [`C3D.md#polynomial-velocity-law`](C3D.md#polynomial-velocity-law).
+
 ## Outputs
 
 The example produces the input profile plot plus the same diagnostic outputs as
@@ -64,6 +67,11 @@ the original 3D example:
 ### Input Profiles
 
 ![Input radial profiles](../python_examples/Using_pyCloudy_3_spherical_profiles/figures/input_radial_profiles.png)
+
+![Input density with C3D polynomial velocity](../python_examples/Using_pyCloudy_3_spherical_profiles/figures/input_radial_profiles_wpolyv.png)
+
+The second input-profile figure keeps the density from `radial_profiles.csv`
+but shows the C3D polynomial velocity used for `profile_default.png`.
 
 ### Line Profiles
 

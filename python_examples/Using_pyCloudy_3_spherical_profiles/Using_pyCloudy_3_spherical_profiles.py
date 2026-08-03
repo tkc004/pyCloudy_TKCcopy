@@ -81,7 +81,14 @@ def read_profiles(path):
     )
 
 
-def plot_input_profiles(radius_pc, velocity_kms, density_cm3):
+def plot_input_profiles(
+    radius_pc,
+    velocity_kms,
+    density_cm3,
+    title="Input spherical radial profiles",
+    filename="input_radial_profiles.png",
+    velocity_label="Radial velocity",
+):
     figure, density_axis = plt.subplots(figsize=(10, 6))
     velocity_axis = density_axis.twinx()
     density_line = density_axis.plot(
@@ -96,18 +103,33 @@ def plot_input_profiles(radius_pc, velocity_kms, density_cm3):
         velocity_kms,
         "s--",
         color="tab:orange",
-        label="Radial velocity",
+        label=velocity_label,
     )
     density_axis.set_xlabel("Radius [pc]")
     density_axis.set_ylabel(r"Hydrogen density [cm$^{-3}$]", color="tab:blue")
     velocity_axis.set_ylabel("Radial velocity [km/s]", color="tab:orange")
+    density_axis.set_ylim(bottom=0.0)
+    velocity_axis.set_ylim(bottom=0.0)
     density_axis.tick_params(axis="y", labelcolor="tab:blue")
     velocity_axis.tick_params(axis="y", labelcolor="tab:orange")
     lines = density_line + velocity_line
     density_axis.legend(lines, [line.get_label() for line in lines], loc="best")
-    density_axis.set_title("Input spherical radial profiles")
+    density_axis.set_title(title)
     figure.tight_layout()
-    save_fig(figure, fig_dir / "input_radial_profiles.png")
+    save_fig(figure, fig_dir / filename)
+
+
+def polynomial_velocity_profile(radius_pc, params):
+    """Evaluate C3D's polynomial radial velocity law in km/s."""
+    radius_pc = np.asarray(radius_pc, dtype=float)
+    normalized_radius = radius_pc / radius_pc[-1]
+    velocity_kms = sum(
+        parameter * normalized_radius**power
+        for power, parameter in enumerate(params)
+    )
+    # C3D explicitly sets the velocity vector to zero at the origin.
+    velocity_kms[radius_pc == 0.0] = 0.0
+    return velocity_kms
 
 
 def density_table_commands(radius_pc, density_cm3):
@@ -312,6 +334,16 @@ def other_plots(m3d, proj_axis, n_cut):
 
 radius_pc, velocity_kms, density_cm3 = read_profiles(PROFILE_FILE)
 plot_input_profiles(radius_pc, velocity_kms, density_cm3)
+poly_params = [20.0, 60.0]
+poly_velocity_kms = polynomial_velocity_profile(radius_pc, poly_params)
+plot_input_profiles(
+    radius_pc,
+    poly_velocity_kms,
+    density_cm3,
+    title="Input density with C3D polynomial velocity (params=[20, 60])",
+    filename="input_radial_profiles_wpolyv.png",
+    velocity_label="C3D polynomial velocity",
+)
 cloudy_exe = find_cloudy_exe(script_dir)
 pc.config.cloudy_exe = str(cloudy_exe)
 model_path = temp_model_dir / MODEL_NAME
@@ -321,7 +353,7 @@ pc.run_cloudy(dir_=str(temp_model_dir) + "/", n_proc=6, model_name=MODEL_NAME, u
 c_output = pc.CloudyModel(str(model_path))
 m3d = pc.C3D(c_output, dims=DIM, center=True, n_dim=1)
 
-m3d.set_velocity(params=[20.0, 60.0])
+m3d.set_velocity(params=poly_params)
 m3d.config_profile(size_spectrum=51, vel_max=50.0, v_turb=0.01)
 n_cut = (DIM - 1) // 2
 

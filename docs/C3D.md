@@ -143,6 +143,22 @@ When they say `ion`, they mean the zero-based ion stage for that element:
 - `plot_profiles(Nx=10, Ny=10, ref=None, axis='x', normalized=True, i_fig=None, ...)` - plot profiles in a grid
 - `get_RGB(list_emis=[0, 1, 2], axes=1)` - build RGB composite cubes or maps from three emissivity channels
 
+### Polynomial Velocity Law
+
+C3D's default polynomial law uses `params=[a0, a1, ..., aN]` to define the
+radial speed at radius `r`:
+
+```text
+v(r) = a0 + a1 (r / R)^1 + a2 (r / R)^2 + ... + aN (r / R)^N
+```
+
+Here, `R` is the outer radius of the C3D grid and every `ai` is a velocity
+coefficient in km/s. The coefficients control the constant, linear, quadratic,
+and higher-order contributions. For the default example, `params=[20, 60]`
+means `v(r) = 20 + 60 (r / R)` km/s away from the origin; C3D sets the velocity
+vector to zero exactly at the origin. The polynomial velocity is radial, with
+Cartesian components proportional to `(x, y, z) / r`.
+
 ### Saving and setup
 
 - `save_coeffs(file_coeffs)` - save interpolation coefficients for reuse
