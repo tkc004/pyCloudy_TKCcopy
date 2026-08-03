@@ -2174,6 +2174,7 @@ class CloudyInput(object):
         self.set_star()
         self.set_radius()
         self.set_cste_density()
+        self.set_cste_temperature()
         self.set_tlaw()
         self.set_abund()
         self.set_grains()
@@ -2294,6 +2295,15 @@ class CloudyInput(object):
                 self._filling_factor = 'filling factor = {0:f}'.format(ff)
         else:
             self._filling_factor = 'filling factor = 1.0'
+
+    def set_cste_temperature(self, temperature=None, others=None):
+        """Set a constant gas temperature in K."""
+        if temperature is None:
+            self._temperature = None
+            return None
+        self._temperature = 'constant temperature {0:g} K'.format(temperature)
+        if others is not None:
+            self._temperature += ' ' + str(others)
 
     def set_tlaw(self, tlaw_params=None):
         """Define a Cloudy temperature law.

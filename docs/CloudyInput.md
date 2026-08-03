@@ -77,6 +77,19 @@ Set a user-defined density law.
 - `dlaw_params`: one value or a sequence of values
 - `ff`: optional filling factor
 
+### `set_cste_temperature(temperature=None, others=None)`
+
+Set a constant gas temperature.
+
+- `temperature`: temperature in K
+- `others`: optional Cloudy temperature options, such as `linear`
+
+Example:
+
+```python
+c_input.set_cste_temperature(10000.0)
+```
+
 ### `set_tlaw(tlaw_params=None)`
 
 Set a Cloudy temperature law.
