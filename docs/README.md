@@ -80,6 +80,9 @@ If you are new to this fork, this is the best path:
 4. Review `Using_pyCloudy_with_PyNeb.ipynb` if you use PyNeb
 5. Review `Using_pyCloudy_MdB.ipynb` if you use the database tools
 
+For a spherical 3D workflow with user-supplied radius, velocity, and density
+profiles, see [`Using_pyCloudy_3_spherical_profiles.md`](Using_pyCloudy_3_spherical_profiles.md).
+
 ## Quick Examples
 
 ### Build a Cloudy input file
