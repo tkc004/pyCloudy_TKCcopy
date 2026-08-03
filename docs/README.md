@@ -85,15 +85,19 @@ profiles, see [`Using_pyCloudy_3_spherical_profiles.md`](Using_pyCloudy_3_spheri
 
 ## Examples
 
+The original example notebooks are stored in [`pyCloudy/docs/`](../pyCloudy/docs/).
+Where available, each example below links to its Python script, notebook, and
+exported PDF.
+
 - [`quickstart.py`](../python_examples/quickstart/quickstart.py): Minimal introduction to building, running, and reading a 1D Cloudy model.
-- [`Using_pyCloudy_1.py`](../python_examples/Using_pyCloudy_1/Using_pyCloudy_1.py): Basic 1D workflow for creating, running, and analyzing a spherical model.
-- [`Using_pyCloudy_2.py`](../python_examples/Using_pyCloudy_2/Using_pyCloudy_2.py): Grid workflow for running multiple 1D models with varied physical parameters.
-- [`Using_pyCloudy_3.py`](../python_examples/Using_pyCloudy_3/Using_pyCloudy_3.py): Pseudo-3D workflow built from angular 1D models, including line profiles, maps, and RGB images.
-- [`Using_pyCloudy_4.py`](../python_examples/Using_pyCloudy_4/Using_pyCloudy_4.py): C3D workflow for extracting slit or aperture observations from a spherical model.
+- [`Using_pyCloudy_1.py`](../python_examples/Using_pyCloudy_1/Using_pyCloudy_1.py) | [`notebook`](../pyCloudy/docs/Using_pyCloudy_1.ipynb) | [`PDF`](../pyCloudy/docs/Using_pyCloudy_1.pdf): Basic 1D workflow for creating, running, and analyzing a spherical model.
+- [`Using_pyCloudy_2.py`](../python_examples/Using_pyCloudy_2/Using_pyCloudy_2.py) | [`notebook`](../pyCloudy/docs/Using_pyCloudy_2.ipynb) | [`PDF`](../pyCloudy/docs/Using_pyCloudy_2.pdf): Grid workflow for running multiple 1D models with varied physical parameters.
+- [`Using_pyCloudy_3.py`](../python_examples/Using_pyCloudy_3/Using_pyCloudy_3.py) | [`notebook`](../pyCloudy/docs/Using_pyCloudy_3.ipynb) | [`PDF`](../pyCloudy/docs/Using_pyCloudy_3.pdf): Pseudo-3D workflow built from angular 1D models, including line profiles, maps, and RGB images.
+- [`Using_pyCloudy_4.py`](../python_examples/Using_pyCloudy_4/Using_pyCloudy_4.py) | [`notebook`](../pyCloudy/docs/Using_pyCloudy_4.ipynb) | [`PDF`](../pyCloudy/docs/Using_pyCloudy_4.pdf): C3D workflow for extracting slit or aperture observations from a spherical model.
 - [`Using_pyCloudy_3_spherical_profiles.py`](../python_examples/Using_pyCloudy_3_spherical_profiles/Using_pyCloudy_3_spherical_profiles.py): Spherical pseudo-3D workflow driven by external radial velocity and density profiles.
-- [`Using_pyCloudy_with_PyNeb.py`](../python_examples/Using_pyCloudy_with_PyNeb/Using_pyCloudy_with_PyNeb.py): PyNeb workflow for comparing atomic data sets and deriving temperature and density diagnostics.
-- [`Using_pyCloudy_MdB.py`](../python_examples/Using_pyCloudy_MdB/Using_pyCloudy_MdB.py): Database workflow for querying 3MdB models and plotting diagnostic diagrams.
-- [`shocks.py`](../python_examples/shocks/shocks.py): Shock and elliptical-nebula example producing RGB and density diagnostic maps.
+- [`Using_pyCloudy_with_PyNeb.py`](../python_examples/Using_pyCloudy_with_PyNeb/Using_pyCloudy_with_PyNeb.py) | [`notebook`](../pyCloudy/docs/Using_pyCloudy_with_PyNeb.ipynb) | [`PDF`](../pyCloudy/docs/Using_pyCloudy_with_PyNeb.pdf): PyNeb workflow for comparing atomic data sets and deriving temperature and density diagnostics.
+- [`Using_pyCloudy_MdB.py`](../python_examples/Using_pyCloudy_MdB/Using_pyCloudy_MdB.py) | [`notebook`](../pyCloudy/docs/Using_pyCloudy_MdB.ipynb) | [`PDF`](../pyCloudy/docs/Using_pyCloudy_MdB.pdf): Database workflow for querying 3MdB models and plotting diagnostic diagrams.
+- [`shocks.py`](../python_examples/shocks/shocks.py) | [`notebook`](../pyCloudy/docs/shocks.ipynb): Shock and elliptical-nebula example producing RGB and density diagnostic maps.
 
 ## Quick Examples
 
