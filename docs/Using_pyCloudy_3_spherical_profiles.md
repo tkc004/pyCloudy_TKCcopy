@@ -67,9 +67,15 @@ the original 3D example:
 
 ### Line Profiles
 
-![Default line profile](../python_examples/Using_pyCloudy_3_spherical_profiles/figures/profile_default.png)
+![Line profiles using the default polynomial velocity law](../python_examples/Using_pyCloudy_3_spherical_profiles/figures/profile_default.png)
 
-![User velocity line profile](../python_examples/Using_pyCloudy_3_spherical_profiles/figures/profile_user_velocity.png)
+![Line profiles using the user velocity profile](../python_examples/Using_pyCloudy_3_spherical_profiles/figures/profile_user_velocity.png)
+
+`profile_default.png` uses pyCloudy’s built-in polynomial velocity law with
+`params=[20, 60]`. `profile_user_velocity.png` uses the velocity values from
+`radial_profiles.csv`, interpolated onto the 3D model grid. Both figures show
+the same Hβ, [N II] λ6584, and [O III] λ5007 line profiles, so the difference
+is the velocity field used to calculate them.
 
 ### Derived Maps
 

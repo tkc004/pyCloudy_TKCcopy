@@ -169,11 +169,12 @@ def set_user_velocity(m3d, radius_pc, velocity_kms):
     m3d.config_profile(size_spectrum=41, vel_max=max(25.0, float(np.max(np.abs(velocity_kms))) * 1.2), v_turb=0.01)
 
 
-def plot_profiles(m3d, x_pos, y_pos):
+def plot_profiles(m3d, x_pos, y_pos, title):
     axis = plt.gca()
     plt.plot(m3d.vel_tab, m3d.get_profile("H__1_486132A", axis="x")[:, x_pos, y_pos] * 5, label=r"H$\beta$")
     plt.plot(m3d.vel_tab, m3d.get_profile("N__2_658345A", axis="x")[:, x_pos, y_pos] * 5, label=r"[NII]$\lambda$6584")
     plt.plot(m3d.vel_tab, m3d.get_profile("O__3_500684A", axis="x")[:, x_pos, y_pos], label=r"[OIII]$\lambda$5007")
+    axis.set_title(title)
     axis.set_xlabel("Velocity [km/s]")
     axis.set_ylabel(r"Scaled emissivity [erg s$^{-1}$ cm$^{-3}$]")
     plt.legend()
@@ -325,13 +326,23 @@ m3d.config_profile(size_spectrum=51, vel_max=50.0, v_turb=0.01)
 n_cut = (DIM - 1) // 2
 
 plt.figure(figsize=(10, 10))
-plot_profiles(m3d, n_cut, n_cut)
+plot_profiles(
+    m3d,
+    n_cut,
+    n_cut,
+    "Line profiles: default polynomial velocity law (params=[20, 60])",
+)
 save_fig(plt.gcf(), fig_dir / "profile_default.png")
 
 set_user_velocity(m3d, radius_pc, velocity_kms)
 
 plt.figure(figsize=(10, 10))
-plot_profiles(m3d, n_cut, n_cut)
+plot_profiles(
+    m3d,
+    n_cut,
+    n_cut,
+    "Line profiles: user velocity profile from radial_profiles.csv",
+)
 save_fig(plt.gcf(), fig_dir / "profile_user_velocity.png")
 
 plt.figure(figsize=(15, 15))
