@@ -34,6 +34,11 @@ Example index
   RHD-profile variant using ``radial_profile_rhd.csv`` and an ionizing photon
   rate of ``10^49 s^-1``. See the
   `dedicated documentation <../docs/Using_pyCloudy_3_spherical_profiles_rhd.md>`_.
+* `Using_pyCloudy_3_spherical_profiles_rhd_wind.py <Using_pyCloudy_3_spherical_profiles_rhd_wind/Using_pyCloudy_3_spherical_profiles_rhd_wind.py>`_:
+  RHD stellar-wind profile variant using ``radial_profile_rhd_wind.csv`` with
+  ``10^-6 Msun/yr`` and ``1000 km/s`` represented by the external profile.
+  See the
+  `dedicated documentation <../docs/Using_pyCloudy_3_spherical_profiles_rhd_wind.md>`_.
 * `Using_pyCloudy_with_PyNeb.py <Using_pyCloudy_with_PyNeb/Using_pyCloudy_with_PyNeb.py>`_:
   PyNeb workflow for comparing atomic data sets and deriving temperature and
   density diagnostics. See the
