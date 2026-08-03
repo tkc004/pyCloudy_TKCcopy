@@ -61,13 +61,29 @@ held at the final supplied value beyond the last profile point.
 The example produces the input profile plot plus the same diagnostic outputs as
 the original 3D example:
 
-- [`input_radial_profiles.png`](../python_examples/Using_pyCloudy_3_spherical_profiles/figures/input_radial_profiles.png)
-- [`profile_default.png`](../python_examples/Using_pyCloudy_3_spherical_profiles/figures/profile_default.png)
-- [`profile_user_velocity.png`](../python_examples/Using_pyCloudy_3_spherical_profiles/figures/profile_user_velocity.png)
-- [`derived_maps.png`](../python_examples/Using_pyCloudy_3_spherical_profiles/figures/derived_maps.png)
-- [`rgb_compact.png`](../python_examples/Using_pyCloudy_3_spherical_profiles/figures/rgb_compact.png)
-- [`rgb_with_profiles.png`](../python_examples/Using_pyCloudy_3_spherical_profiles/figures/rgb_with_profiles.png)
-- [`diagnostic_scatter.png`](../python_examples/Using_pyCloudy_3_spherical_profiles/figures/diagnostic_scatter.png)
+### Input Profiles
+
+![Input radial profiles](../python_examples/Using_pyCloudy_3_spherical_profiles/figures/input_radial_profiles.png)
+
+### Line Profiles
+
+![Default line profile](../python_examples/Using_pyCloudy_3_spherical_profiles/figures/profile_default.png)
+
+![User velocity line profile](../python_examples/Using_pyCloudy_3_spherical_profiles/figures/profile_user_velocity.png)
+
+### Derived Maps
+
+![Derived maps](../python_examples/Using_pyCloudy_3_spherical_profiles/figures/derived_maps.png)
+
+### RGB Images
+
+![Compact RGB image](../python_examples/Using_pyCloudy_3_spherical_profiles/figures/rgb_compact.png)
+
+![RGB image with profiles](../python_examples/Using_pyCloudy_3_spherical_profiles/figures/rgb_with_profiles.png)
+
+### Diagnostic Scatter
+
+![Diagnostic scatter](../python_examples/Using_pyCloudy_3_spherical_profiles/figures/diagnostic_scatter.png)
 
 The RGB figures use `[NII] 6584` for red, `[OIII] 5007` for green, and H-beta
 4861 for blue. The RGB-with-profiles figure overlays spatially aligned line

@@ -174,20 +174,6 @@ the tests.
 
 The local documentation entry point lives in `docs/`.
 
-To preview the docs locally, open `docs/index.html` in a browser or serve the
-folder with:
-
-```bash
-python -m http.server --directory docs 8000
-```
-
-Then visit `http://localhost:8000`.
-
-The bundled notebook examples live in `pyCloudy/docs/` and the exported Python
-versions live in `python_examples/`. If you update or add notebooks, regenerate
-the Python scripts with `jupyter nbconvert` and refresh the docs links if
-needed.
-
 ## Notes
 
 - pyCloudy_TKCcopy is a companion library, not a replacement for Cloudy.
