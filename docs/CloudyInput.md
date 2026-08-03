@@ -77,6 +77,23 @@ Set a user-defined density law.
 - `dlaw_params`: one value or a sequence of values
 - `ff`: optional filling factor
 
+### `set_tlaw(tlaw_params=None)`
+
+Set a Cloudy temperature law.
+
+- Pass a Cloudy law parameter such as `"DB96"` or `"SN99"` to emit a direct
+  `tlaw` command.
+- Pass a sequence of `(radius, temperature)` pairs to emit a
+  `tlaw table radius` block. The table is terminated with `end of tlaw`.
+- For `tlaw table radius`, radius values are Cloudy's log10 radius in cm and
+  temperatures are in K. Values are passed through to Cloudy unchanged.
+
+Example:
+
+```python
+c_input.set_tlaw([(17.0, 10000.0), (18.0, 8000.0)])
+```
+
 ### `set_fudge(fudge_params=None)`
 
 Add Cloudy `fudge factors`.

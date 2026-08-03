@@ -2174,6 +2174,7 @@ class CloudyInput(object):
         self.set_star()
         self.set_radius()
         self.set_cste_density()
+        self.set_tlaw()
         self.set_abund()
         self.set_grains()
         self.set_stop()
@@ -2293,6 +2294,40 @@ class CloudyInput(object):
                 self._filling_factor = 'filling factor = {0:f}'.format(ff)
         else:
             self._filling_factor = 'filling factor = 1.0'
+
+    def set_tlaw(self, tlaw_params=None):
+        """Define a Cloudy temperature law.
+
+        Parameters:
+            - tlaw_params: a Cloudy temperature-law parameter or sequence,
+              such as ``'DB96'`` or ``('SN99',)``. A sequence of two-value
+              pairs is written as a ``tlaw table radius`` with radius and
+              temperature on each pair.
+        """
+        if tlaw_params is None:
+            self._temperature = None
+            return None
+
+        if isinstance(tlaw_params, str):
+            self._temperature = 'tlaw ' + tlaw_params
+            return None
+
+        if type(tlaw_params) != type(()) and type(tlaw_params) != type([]):
+            tlaw_params = [tlaw_params]
+
+        if tlaw_params and all(
+                isinstance(pair, (tuple, list)) and len(pair) == 2
+                for pair in tlaw_params):
+            self._temperature = ['tlaw table radius']
+            self._temperature.extend(
+                'continue {0} {1}'.format(pair[0], pair[1])
+                for pair in tlaw_params
+            )
+            self._temperature.append('end of tlaw')
+        else:
+            self._temperature = 'tlaw ' + ' , '.join(
+                [str(tlaw_param) for tlaw_param in tlaw_params]
+            )
 
     def set_fudge(self, fudge_params = None):
         """
@@ -2601,6 +2636,12 @@ class CloudyInput(object):
         if self._radius is not None:
             this_print(self._radius)
         this_print(self._density)
+        if self._temperature is not None:
+            if isinstance(self._temperature, list):
+                for temperature_line in self._temperature:
+                    this_print(temperature_line)
+            else:
+                this_print(self._temperature)
         if self._filling_factor is not None:
             this_print(self._filling_factor)
         if self._abund_predef is not None:
