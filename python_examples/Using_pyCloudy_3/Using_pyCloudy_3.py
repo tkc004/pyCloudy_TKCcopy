@@ -1,13 +1,18 @@
 #!/usr/bin/env python
 # coding: utf-8
+import os
+import sys
+import warnings
+from pathlib import Path
 
-
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from _example_utils import find_cloudy_exe, save_fig
 
 import numpy as np
+
+os.environ.setdefault("MPLCONFIGDIR", str(Path(__file__).resolve().parent / "temp_models" / ".mplconfig"))
+os.environ.setdefault("XDG_CACHE_HOME", str(Path(__file__).resolve().parent / "temp_models" / ".cache"))
 import matplotlib.pyplot as plt
-import os
-from pathlib import Path
-home_dir = os.environ['HOME'] + '/'
 import pyCloudy as pc
 print(pc.__version__)
 
@@ -15,14 +20,7 @@ print(pc.__version__)
 
 
 script_dir = Path(__file__).resolve().parent
-cloudy_exe = None
-for base_dir in (script_dir, *script_dir.parents):
-    candidate = base_dir / 'Cloudy_exe' / 'Cloudy' / 'c22.02' / 'source' / 'cloudy.exe'
-    if candidate.exists():
-        cloudy_exe = candidate
-        break
-if cloudy_exe is None:
-    raise FileNotFoundError('Could not find Cloudy_exe/Cloudy/c22.02/source/cloudy.exe')
+cloudy_exe = find_cloudy_exe(script_dir)
 pc.config.cloudy_exe = str(cloudy_exe)
 
 
@@ -30,6 +28,8 @@ pc.config.cloudy_exe = str(cloudy_exe)
 
 temp_model_dir = script_dir / 'temp_models'
 temp_model_dir.mkdir(exist_ok=True)
+fig_dir = script_dir / 'figures'
+fig_dir.mkdir(exist_ok=True)
 dir_ = str(temp_model_dir) + '/'
 pc.print_make_file(dir_)
 
@@ -104,7 +104,7 @@ def def_profiles_user(m3d):
         for i, coeff in enumerate(coeffs): 
             # for each parameter we add the corresponding coeff * R**power
             tmp = tmp + coeff * cub_coord.r**i
-        tmp = tmp / cub_coord.r
+        tmp = np.divide(tmp, cub_coord.r, out=np.zeros_like(tmp), where=cub_coord.r != 0.)
         # to avoid the singularity:
         tt = (cub_coord.r == 0.)
         tmp[tt] = 0
@@ -137,6 +137,12 @@ def plot_profiles(m3d, x_pos, y_pos):
 
 
 
+def safe_divide(num, den):
+    return np.divide(num, den, out=np.zeros_like(num), where=den != 0.)
+
+
+
+
 def other_plots(m3d, proj_axis):
     plt.subplot(331)
     plt.imshow(m3d.get_emis('H__1_486132A').sum(axis = proj_axis)*m3d.cub_coord.cell_size)
@@ -154,12 +160,14 @@ def other_plots(m3d, proj_axis):
     plt.colorbar()
     
     plt.subplot(334)
-    plt.imshow(m3d.get_emis('N__2_658345A').sum(axis = proj_axis)/m3d.get_emis('H__1_486132A').sum(axis = proj_axis))
+    plt.imshow(safe_divide(m3d.get_emis('N__2_658345A').sum(axis = proj_axis),
+                           m3d.get_emis('H__1_486132A').sum(axis = proj_axis)))
     plt.title('[NII]/Hb')
     plt.colorbar()
     
     plt.subplot(335)
-    plt.imshow(m3d.get_emis('O__3_500684A').sum(axis = proj_axis)/m3d.get_emis('H__1_486132A').sum(axis = proj_axis))
+    plt.imshow(safe_divide(m3d.get_emis('O__3_500684A').sum(axis = proj_axis),
+                           m3d.get_emis('H__1_486132A').sum(axis = proj_axis)))
     plt.title('[OIII]/Hb')
     plt.colorbar()
     
@@ -169,7 +177,8 @@ def other_plots(m3d, proj_axis):
     plt.colorbar()
     
     plt.subplot(337)
-    plt.scatter(m3d.get_ionic('O',1).ravel(),m3d.get_ionic('N',1).ravel()/m3d.get_ionic('O',1).ravel(),
+    plt.scatter(m3d.get_ionic('O',1).ravel(),
+                safe_divide(m3d.get_ionic('N',1), m3d.get_ionic('O',1)).ravel(),
                 c=np.abs(m3d.cub_coord.theta.ravel()), edgecolors = 'none')
     plt.title('Colored by |Theta|')
     plt.xlabel('O+ / O')
@@ -177,7 +186,8 @@ def other_plots(m3d, proj_axis):
     plt.colorbar()
     
     plt.subplot(338)
-    plt.scatter(m3d.get_ionic('O',1).ravel(),m3d.get_ionic('N',1).ravel()/m3d.get_ionic('O',1).ravel(),
+    plt.scatter(m3d.get_ionic('O',1).ravel(),
+                safe_divide(m3d.get_ionic('N',1), m3d.get_ionic('O',1)).ravel(),
                 c=m3d.relative_depth.ravel(),vmin = 0, vmax = 1, edgecolors = 'none')
     plt.title('Colored by position in the nebula')
     plt.xlabel('O+ / O')
@@ -185,12 +195,12 @@ def other_plots(m3d, proj_axis):
     plt.colorbar()
     
     plt.subplot(339)
-    C1 = (m3d.get_ionic('N',1)/m3d.get_ionic('O',1)*m3d.get_ionic('N',2))
+    C1 = safe_divide(m3d.get_ionic('N',1), m3d.get_ionic('O',1)) * m3d.get_ionic('N',2)
     C2 = (m3d.get_ionic('N',2))
     tt = (m3d.get_ionic('O',1) == 0)
     C1[tt] = 0
     C2[tt] = 0
-    V = C1.sum(axis = proj_axis) / C2.sum(axis = proj_axis)
+    V = safe_divide(C1.sum(axis = proj_axis), C2.sum(axis = proj_axis))
     plt.imshow(V)
     plt.colorbar()
     plt.title('N+/O+ / N/O weighted by NII')
@@ -248,6 +258,7 @@ def_profiles(m3d)
 
 plt.figure(figsize=(10,10))
 plot_profiles(m3d, 55, 55)
+save_fig(plt.gcf(), fig_dir / 'profile_default.png')
 
 
 
@@ -256,12 +267,14 @@ plt.figure(figsize=(10,10))
 plot_profiles(m3d, 55, 55)
 def_profiles_user(m3d)
 plt.plot(m3d.vel_tab,m3d.get_profile('H__1_486132A', axis='x')[:,55,55] * 5, ':b', label = r'H$\beta$')
+save_fig(plt.gcf(), fig_dir / 'profile_user_velocity.png')
 
 
 
 
 plt.figure(figsize=(15,15))
 other_plots(m3d, proj_axis)
+save_fig(plt.gcf(), fig_dir / 'derived_maps.png')
 
 
 
@@ -269,6 +282,7 @@ other_plots(m3d, proj_axis)
 im = m3d.get_RGB(list_emis = ['N__2_658345A', 'O__3_500684A', 'H__1_486132A'])
 plt.figure(1, figsize=(10,10))
 plt.imshow(im)
+save_fig(plt.gcf(), fig_dir / 'rgb_compact.png')
 
 
 
@@ -276,7 +290,10 @@ plt.imshow(im)
 im = m3d.get_RGB(list_emis = ['N__2_658345A', 'O__3_500684A', 'H__1_486132A'])
 plt.figure(1, figsize=(15,15))
 plt.imshow(im)
-m3d.plot_profiles(ref = 3, i_fig = 1, Nx=20, Ny=20)
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore", RuntimeWarning)
+    m3d.plot_profiles(ref = 3, i_fig = 1, Nx=20, Ny=20)
+save_fig(plt.gcf(), fig_dir / 'rgb_with_profiles.png')
 
 
 
@@ -289,7 +306,10 @@ masks = []
 for mapl in (Hbmap, O3map, N2map):
     masks.append(mapl > 0.01 * mapl.max())
 mask = np.logical_and.reduce(masks)
-ax.scatter(np.log10((N2map/Hbmap)[mask]), np.log10((O3map/Hbmap)[mask]))
-ax.scatter(np.log10(N2map[mask].sum()/Hbmap[mask].sum()), np.log10(O3map[mask].sum()/Hbmap[mask].sum()), marker='*', s=200, color='red')
+ax.scatter(np.log10(safe_divide(N2map, Hbmap)[mask]), np.log10(safe_divide(O3map, Hbmap)[mask]))
+ax.scatter(np.log10(np.divide(N2map[mask].sum(), Hbmap[mask].sum())),
+           np.log10(np.divide(O3map[mask].sum(), Hbmap[mask].sum())),
+           marker='*', s=200, color='red')
 ax.set_xlabel('log10([NII]/Hb)')
 ax.set_ylabel('log10([OIII/Hb)');
+save_fig(f, fig_dir / 'diagnostic_scatter.png')

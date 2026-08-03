@@ -7,21 +7,44 @@
 
 
 
+import os
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+script_dir = Path(__file__).resolve().parent
+temp_model_dir = script_dir / 'temp_models'
+temp_model_dir.mkdir(exist_ok=True)
+fig_dir = script_dir / 'figures'
+fig_dir.mkdir(exist_ok=True)
+os.environ.setdefault("MPLCONFIGDIR", str(temp_model_dir / ".mplconfig"))
+os.environ.setdefault("XDG_CACHE_HOME", str(temp_model_dir / ".cache"))
+
 import numpy as np
-import matplotlib.pyplot as plt
-import pyCloudy as pc
 import pandas as pd
-from sqlalchemy import create_engine
+import matplotlib.pyplot as plt
+
+from _example_utils import save_fig
 
 
 
 
 # Defining the connection parameters.
-import os
-host = os.environ['MdB_HOST']
-user = os.environ['MdB_USER']
-passwd = os.environ['MdB_PASSWD']
-db=os.environ['MdB_DB_17']    
+required_env = ('MdB_HOST', 'MdB_USER', 'MdB_PASSWD', 'MdB_DB_17')
+missing_env = [name for name in required_env if not os.environ.get(name)]
+if missing_env:
+    raise RuntimeError(
+        'MdB database configuration is missing: ' + ', '.join(missing_env)
+    )
+host, user, passwd, db = (os.environ[name] for name in required_env)
+
+try:
+    from sqlalchemy import create_engine
+except ImportError as exc:
+    raise RuntimeError(
+        'The MdB example requires SQLAlchemy and the PyMySQL driver'
+    ) from exc
 
 
 
@@ -62,6 +85,7 @@ plt.xlabel('log [NII]/Ha')
 plt.ylabel('log [OIII]/Hb')
 cb = plt.colorbar()
 cb.set_label('logU');
+save_fig(plt.gcf(), fig_dir / 'bond_bpt_logu.png')
 
 
 
@@ -72,11 +96,13 @@ plt.xlabel('log [NII]/Ha')
 plt.ylabel('log [OIII]/Hb')
 cb = plt.colorbar()
 cb.set_label('O/H');
+save_fig(plt.gcf(), fig_dir / 'bond_bpt_oh.png')
 
 
 
 
-res = pd.read_sql("SELECT count(*) as N FROM tab_17 WHERE ref like 'PNe_2020'", con=co)
+with sqlEngine.connect() as db_con:
+    res = pd.read_sql("SELECT count(*) as N FROM tab_17 WHERE ref like 'PNe_2020'", con=db_con)
 print("Total number of models with ref='PNe_2020': {}".format(res.N.values[0]))
 
 
@@ -124,3 +150,4 @@ plt.xlabel(r'O$^{++}$/(O$^+$+O$^{++}$)')
 plt.ylabel(r'log ICF$_{th}$(N$^+$/O$^+$)')
 cb = plt.colorbar()
 cb.set_label('Stellar Temperature')
+save_fig(plt.gcf(), fig_dir / 'pne_ionization_correction.png')

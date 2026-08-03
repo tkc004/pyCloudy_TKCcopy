@@ -3,28 +3,26 @@
 
 # # How to take account of the slit position when computing line intensities (even for a spherical nebula)
 
+import os
+import sys
+from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from _example_utils import find_cloudy_exe, save_fig
 
 import numpy as np
+
+script_dir = Path(__file__).resolve().parent
+os.environ.setdefault("MPLCONFIGDIR", str(script_dir / "temp_models" / ".mplconfig"))
+os.environ.setdefault("XDG_CACHE_HOME", str(script_dir / "temp_models" / ".cache"))
 import matplotlib.pyplot as plt
-import os
-from pathlib import Path
-home_dir = os.environ['HOME'] + '/'
 
 
 
 
 import pyCloudy as pc
 # Changing the location and version of the cloudy executable.
-script_dir = Path(__file__).resolve().parent
-cloudy_exe = None
-for base_dir in (script_dir, *script_dir.parents):
-    candidate = base_dir / 'Cloudy_exe' / 'Cloudy' / 'c22.02' / 'source' / 'cloudy.exe'
-    if candidate.exists():
-        cloudy_exe = candidate
-        break
-if cloudy_exe is None:
-    raise FileNotFoundError('Could not find Cloudy_exe/Cloudy/c22.02/source/cloudy.exe')
+cloudy_exe = find_cloudy_exe(script_dir)
 pc.config.cloudy_exe = str(cloudy_exe)
 from pyCloudy.utils.astro import conv_arc
 
@@ -36,6 +34,8 @@ from pyCloudy.utils.astro import conv_arc
 # will not receive all the Cloudy files.
 temp_model_dir = script_dir / 'temp_models'
 temp_model_dir.mkdir(exist_ok=True)
+fig_dir = script_dir / 'figures'
+fig_dir.mkdir(exist_ok=True)
 dir_ = str(temp_model_dir) + '/'
 
 
@@ -150,6 +150,7 @@ M_sphere = pc.C3D(c_output, dims=cube_size, center=True, n_dim=1)
 
 # plot the image of the OIII emission
 plt.imshow(M_sphere.get_emis('O__3_500684A').sum(0));
+save_fig(plt.gcf(), fig_dir / 'o3_image.png')
 
 
 
@@ -197,6 +198,7 @@ print(mask.sum())
 plt.imshow(M_sphere.get_emis('O__3_500684A').sum(0), interpolation='None')
 plt.colorbar()
 plt.contour(mask);
+save_fig(plt.gcf(), fig_dir / 'o3_aperture.png')
 
 
 
@@ -205,6 +207,8 @@ plt.contour(mask);
 Hb_tot = (M_sphere.get_emis('H__1_486132A')*M_sphere.cub_coord.cell_size).sum()
 Hb_slit = ((M_sphere.get_emis('H__1_486132A')*M_sphere.cub_coord.cell_size).sum(1) * mask).sum()
 print(Hb_tot, Hb_slit)
+if Hb_tot == 0 or Hb_slit == 0:
+    raise ValueError('Hbeta flux is zero for the total model or selected aperture')
 
 
 
@@ -212,7 +216,7 @@ print(Hb_tot, Hb_slit)
 # For every line, we compute the intensity for the whole object and throught the aperture.
 # We also print out the difference due to the slit.
 for label in M_sphere.m[0].emis_labels:
-    I_tot = (M_sphere.get_emis(label).sum()*M_sphere.cub_coord.cell_size) / Hb_tot
-    I_slit = ((M_sphere.get_emis(label).sum(1) * mask).sum()*M_sphere.cub_coord.cell_size) / Hb_slit
+    I_tot = np.divide(M_sphere.get_emis(label).sum()*M_sphere.cub_coord.cell_size, Hb_tot)
+    I_slit = np.divide((M_sphere.get_emis(label).sum(1) * mask).sum()*M_sphere.cub_coord.cell_size, Hb_slit)
     print('line: {0:12s} I/Ib Total: {1:6.4f} I/Ib Slit: {2:6.4f} Delta: {3:4.1f}%'.format(label, I_tot, I_slit, 
                                                                                            (I_slit-I_tot)/I_tot*100))
