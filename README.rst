@@ -251,6 +251,12 @@ Examples
   ``10^-6 Msun/yr`` and ``1000 km/s`` represented by the external profile.
   See the
   `dedicated documentation <docs/Using_pyCloudy_3_spherical_profiles_rhd_wind.md>`_.
+* `Using_pyCloudy_3_spherical_profiles_rhd_wind_temperature.py <python_examples/Using_pyCloudy_3_spherical_profiles_rhd_wind_temperature/Using_pyCloudy_3_spherical_profiles_rhd_wind_temperature.py>`_:
+  batch RHD stellar-wind workflow reading density, velocity, and temperature
+  profiles from CSV files in ``radial_profiles/`` with ``q(H)=10^49 s^-1``.
+  Each profile receives separate ``figures/<csv-stem>/`` and
+  ``temp_models/<csv-stem>/`` directories. See the
+  `dedicated documentation <docs/Using_pyCloudy_3_spherical_profiles_rhd_wind_temperature.md>`_.
 * `Using_pyCloudy_with_PyNeb.py <python_examples/Using_pyCloudy_with_PyNeb/Using_pyCloudy_with_PyNeb.py>`_:
   PyNeb workflow for comparing atomic data sets and deriving temperature and
   density diagnostics. See the
