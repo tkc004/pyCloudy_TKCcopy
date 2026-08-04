@@ -202,6 +202,29 @@ def plot_profiles(m3d, x_pos, y_pos, title):
     plt.legend()
 
 
+def plot_cloudy_emissivity_profiles(c_output):
+    """Save Cloudy's radial emissivity profiles for the displayed lines."""
+    radius_pc = c_output.radius / pc.CST.PC
+    figure, axis = plt.subplots(figsize=(10, 6))
+    lines = (
+        ("H__1_486132A", r"H$\beta$ 4861", "tab:blue"),
+        ("N__2_658345A", "[NII] 6584", "tab:orange"),
+        ("O__3_500684A", "[OIII] 5007", "tab:green"),
+    )
+    for ref, label, color in lines:
+        emissivity = np.asarray(c_output.get_emis(ref))
+        positive = emissivity > 0.0
+        axis.plot(radius_pc[positive], emissivity[positive], label=label, color=color)
+    axis.set_title("Cloudy radial line emissivities")
+    axis.set_xlabel("Radius [pc]")
+    axis.set_ylabel(r"Emissivity [erg s$^{-1}$ cm$^{-3}$]")
+    axis.set_yscale("log")
+    axis.grid(True, which="both", alpha=0.25)
+    axis.legend()
+    figure.tight_layout()
+    save_fig(figure, fig_dir / "emissivity_radial_profiles.png")
+
+
 def safe_divide(num, den):
     return np.divide(num, den, out=np.zeros_like(num), where=den != 0.0)
 
@@ -351,6 +374,7 @@ build_model(model_path, radius_pc, density_cm3)
 pc.print_make_file(dir_=str(temp_model_dir) + "/")
 pc.run_cloudy(dir_=str(temp_model_dir) + "/", n_proc=6, model_name=MODEL_NAME, use_make=True)
 c_output = pc.CloudyModel(str(model_path))
+plot_cloudy_emissivity_profiles(c_output)
 m3d = pc.C3D(c_output, dims=DIM, center=True, n_dim=1)
 
 m3d.set_velocity(params=poly_params)

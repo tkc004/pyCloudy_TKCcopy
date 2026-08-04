@@ -22,16 +22,18 @@ sys.path.insert(0, str(script_dir.parents[1]))
 sys.path.insert(1, str(script_dir.parents[0]))
 from _example_utils import find_cloudy_exe, save_fig
 
-temp_model_dir = script_dir / "temp_models"
-temp_model_dir.mkdir(exist_ok=True)
-fig_dir = script_dir / "figures"
-fig_dir.mkdir(exist_ok=True)
-mpl_config_dir = temp_model_dir / ".mplconfig"
-cache_dir = temp_model_dir / ".cache"
-mpl_config_dir.mkdir(exist_ok=True)
-cache_dir.mkdir(exist_ok=True)
-os.environ["MPLCONFIGDIR"] = str(mpl_config_dir)
-os.environ["XDG_CACHE_HOME"] = str(cache_dir)
+base_temp_model_dir = script_dir / "temp_models"
+base_fig_dir = script_dir / "figures"
+temp_model_dir = base_temp_model_dir
+fig_dir = base_fig_dir
+base_temp_model_dir.mkdir(exist_ok=True)
+base_fig_dir.mkdir(exist_ok=True)
+base_mpl_config_dir = base_temp_model_dir / ".mplconfig"
+base_cache_dir = base_temp_model_dir / ".cache"
+base_mpl_config_dir.mkdir(exist_ok=True)
+base_cache_dir.mkdir(exist_ok=True)
+os.environ["MPLCONFIGDIR"] = str(base_mpl_config_dir)
+os.environ["XDG_CACHE_HOME"] = str(base_cache_dir)
 
 import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap, Normalize
@@ -39,9 +41,9 @@ from matplotlib.cm import ScalarMappable
 import pyCloudy as pc
 
 
-PROFILE_FILE = script_dir / "radial_profile_rhd_wind.csv"
+PROFILE_DIR = script_dir / "radial_profiles"
 
-MODEL_NAME = "M3D_spherical_profiles_rhd_wind_temperature"
+MODEL_NAME_PREFIX = "M3D_spherical_profiles_rhd_wind_temperature"
 DIM = 151
 PROJ_AXIS = 0
 PROFILE_DISPLAY_LIMITS = (-40.0, 40.0)
@@ -57,6 +59,20 @@ EMIS_TAB = [
     "S  2  6730.82A", "Cl 3  5517.71A", "Cl 3  5537.87A",
     "O  1  63.1679m", "O  1  145.495m", "C  2  157.636m",
 ]
+
+
+def configure_output_dirs(profile_file):
+    """Create isolated model, cache, and figure directories for one CSV."""
+    global temp_model_dir, fig_dir
+    profile_stem = profile_file.stem
+    temp_model_dir = base_temp_model_dir / profile_stem
+    fig_dir = base_fig_dir / profile_stem
+    mpl_config_dir = temp_model_dir / ".mplconfig"
+    cache_dir = temp_model_dir / ".cache"
+    for directory in (temp_model_dir, fig_dir, mpl_config_dir, cache_dir):
+        directory.mkdir(parents=True, exist_ok=True)
+    os.environ["MPLCONFIGDIR"] = str(mpl_config_dir)
+    os.environ["XDG_CACHE_HOME"] = str(cache_dir)
 
 
 def validate_profiles(radius_pc, velocity_kms, density_cm3, temperature_k):
@@ -519,103 +535,141 @@ def other_plots(m3d, proj_axis, n_cut):
     plt.contour(weighted_map, levels=[1.0])
 
 
+def run_profile(profile_file, include_xray=False):
+    """Run the complete workflow for one external profile CSV."""
+    configure_output_dirs(profile_file)
+    profile_stem = profile_file.stem
+    model_name = f"{MODEL_NAME_PREFIX}_{profile_stem}"
+    radius_pc, velocity_kms, density_cm3, temperature_k = read_profiles(profile_file)
+    plot_input_profiles(
+        radius_pc,
+        velocity_kms,
+        density_cm3,
+        title=f"Input spherical radial profiles: {profile_file.name}",
+    )
+    poly_params = [20.0, 60.0]
+    poly_velocity_kms = polynomial_velocity_profile(radius_pc, poly_params)
+    plot_input_profiles(
+        radius_pc,
+        poly_velocity_kms,
+        density_cm3,
+        title=f"Input density with C3D polynomial velocity: {profile_file.name}",
+        filename="input_radial_profiles_wpolyv.png",
+        velocity_label="C3D polynomial velocity",
+    )
+    cloudy_exe = find_cloudy_exe(script_dir)
+    pc.config.cloudy_exe = str(cloudy_exe)
+    model_path = temp_model_dir / model_name
+    build_model(model_path, radius_pc, density_cm3, temperature_k, include_xray=include_xray)
+    pc.print_make_file(dir_=str(temp_model_dir) + "/")
+    pc.run_cloudy(dir_=str(temp_model_dir) + "/", n_proc=6, model_name=model_name, use_make=True)
+    c_output = pc.CloudyModel(str(model_path))
+    xray_path = model_path.with_name(model_path.name + XRAY_FILE_SUFFIX) if include_xray else None
+    plot_cloudy_radial_profiles(c_output, xray_path)
+    m3d = pc.C3D(c_output, dims=DIM, center=True, n_dim=1)
+
+    m3d.set_velocity(params=poly_params)
+    m3d.config_profile(size_spectrum=51, vel_max=50.0, v_turb=0.01)
+    n_cut = (DIM - 1) // 2
+
+    plt.figure(figsize=(10, 10))
+    plot_profiles(
+        m3d,
+        n_cut,
+        n_cut,
+        f"Line profiles: default polynomial velocity law ({profile_stem})",
+    )
+    save_fig(plt.gcf(), fig_dir / "profile_default.png")
+
+    set_user_velocity(m3d, radius_pc, velocity_kms)
+
+    plt.figure(figsize=(10, 10))
+    plot_profiles(
+        m3d,
+        n_cut,
+        n_cut,
+        f"Line profiles: user velocity profile from {profile_file.name}",
+        velocity_limits=PROFILE_DISPLAY_LIMITS,
+    )
+    save_fig(plt.gcf(), fig_dir / "profile_user_velocity.png")
+
+    plt.figure(figsize=(15, 15))
+    other_plots(m3d, PROJ_AXIS, n_cut)
+    save_fig(plt.gcf(), fig_dir / "derived_maps.png")
+
+    rgb_maps = [
+        project_spherical_emissivity(c_output, m3d, ref, proj_axis=1)
+        for ref in ("N__2_658345A", "O__3_500684A", "H__1_486132A")
+    ]
+    image = make_rgb_image(*rgb_maps)
+    rgb_extent = [
+        m3d.cub_coord.x_vec[0] / pc.CST.PC,
+        m3d.cub_coord.x_vec[-1] / pc.CST.PC,
+        m3d.cub_coord.z_vec[0] / pc.CST.PC,
+        m3d.cub_coord.z_vec[-1] / pc.CST.PC,
+    ]
+    save_fig(show_rgb_with_colorbars(image, rgb_extent), fig_dir / "rgb_compact.png")
+
+    rgb_with_profiles_figure, rgb_axis = plt.subplots(figsize=(15, 15))
+    rgb_axis.imshow(
+        image,
+        extent=rgb_extent,
+        origin="lower",
+        interpolation="nearest",
+        vmin=0,
+        vmax=255,
+    )
+    rgb_axis.set_title(f"RGB emission image with [NII] 6584 line profiles: {profile_stem}")
+    rgb_axis.set_xlabel("Projected x [pc]")
+    rgb_axis.set_ylabel("Projected z [pc]")
+    add_rgb_colorbars(rgb_with_profiles_figure)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        add_profiles_to_rgb(m3d, rgb_axis, ref=3, image_proj_axis=1, nx=20, ny=20)
+    save_fig(rgb_with_profiles_figure, fig_dir / "rgb_with_profiles.png")
+
+    f, ax = plt.subplots()
+    n2map = m3d.get_emis("N__2_658345A").sum(axis=PROJ_AXIS)
+    hbmap = m3d.get_emis("H__1_486132A").sum(axis=PROJ_AXIS)
+    o3map = m3d.get_emis("O__3_500684A").sum(axis=PROJ_AXIS)
+    mask = np.logical_and.reduce(
+        [line_map > 0.01 * line_map.max() for line_map in (hbmap, o3map, n2map)]
+    )
+    ax.scatter(
+        np.log10(safe_divide(n2map, hbmap)[mask]),
+        np.log10(safe_divide(o3map, hbmap)[mask]),
+    )
+    ax.set_xlabel("log10([NII]/Hb)")
+    ax.set_ylabel("log10([OIII]/Hb)")
+    save_fig(f, fig_dir / "diagnostic_scatter.png")
+    plt.close("all")
+
+
 parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument(
+    "--profile",
+    type=Path,
+    help="run one profile CSV instead of every CSV in radial_profiles/",
+)
 parser.add_argument(
     "--xray",
     action="store_true",
-    help="save and plot the radial 0.1--10 keV X-ray luminosity",
+    help="save and plot the radial 0.1--10 keV X-ray luminosity for each profile",
 )
 args = parser.parse_args()
-
-radius_pc, velocity_kms, density_cm3, temperature_k = read_profiles(PROFILE_FILE)
-plot_input_profiles(radius_pc, velocity_kms, density_cm3)
-poly_params = [20.0, 60.0]
-poly_velocity_kms = polynomial_velocity_profile(radius_pc, poly_params)
-plot_input_profiles(
-    radius_pc,
-    poly_velocity_kms,
-    density_cm3,
-    title="Input density with C3D polynomial velocity (params=[20, 60])",
-    filename="input_radial_profiles_wpolyv.png",
-    velocity_label="C3D polynomial velocity",
+profile_files = (
+    [args.profile]
+    if args.profile is not None
+    else sorted(
+        profile_file
+        for profile_file in PROFILE_DIR.glob("*.csv")
+        if profile_file.stem != "radial_profile_0Myr"
+    )
 )
-cloudy_exe = find_cloudy_exe(script_dir)
-pc.config.cloudy_exe = str(cloudy_exe)
-model_path = temp_model_dir / MODEL_NAME
-build_model(model_path, radius_pc, density_cm3, temperature_k, include_xray=args.xray)
-pc.print_make_file(dir_=str(temp_model_dir) + "/")
-pc.run_cloudy(dir_=str(temp_model_dir) + "/", n_proc=6, model_name=MODEL_NAME, use_make=True)
-c_output = pc.CloudyModel(str(model_path))
-xray_path = model_path.with_name(model_path.name + XRAY_FILE_SUFFIX) if args.xray else None
-plot_cloudy_radial_profiles(c_output, xray_path)
-m3d = pc.C3D(c_output, dims=DIM, center=True, n_dim=1)
-
-m3d.set_velocity(params=poly_params)
-m3d.config_profile(size_spectrum=51, vel_max=50.0, v_turb=0.01)
-n_cut = (DIM - 1) // 2
-
-plt.figure(figsize=(10, 10))
-plot_profiles(
-    m3d,
-    n_cut,
-    n_cut,
-    "Line profiles: default polynomial velocity law (params=[20, 60])",
-)
-save_fig(plt.gcf(), fig_dir / "profile_default.png")
-
-set_user_velocity(m3d, radius_pc, velocity_kms)
-
-plt.figure(figsize=(10, 10))
-plot_profiles(
-    m3d,
-    n_cut,
-    n_cut,
-    "Line profiles: user velocity profile from radial_profile_rhd_wind.csv",
-    velocity_limits=PROFILE_DISPLAY_LIMITS,
-)
-save_fig(plt.gcf(), fig_dir / "profile_user_velocity.png")
-
-plt.figure(figsize=(15, 15))
-other_plots(m3d, PROJ_AXIS, n_cut)
-save_fig(plt.gcf(), fig_dir / "derived_maps.png")
-
-rgb_maps = [
-    project_spherical_emissivity(c_output, m3d, ref, proj_axis=1)
-    for ref in ("N__2_658345A", "O__3_500684A", "H__1_486132A")
-]
-image = make_rgb_image(*rgb_maps)
-rgb_extent = [
-    m3d.cub_coord.x_vec[0] / pc.CST.PC,
-    m3d.cub_coord.x_vec[-1] / pc.CST.PC,
-    m3d.cub_coord.z_vec[0] / pc.CST.PC,
-    m3d.cub_coord.z_vec[-1] / pc.CST.PC,
-]
-save_fig(show_rgb_with_colorbars(image, rgb_extent), fig_dir / "rgb_compact.png")
-
-rgb_with_profiles_figure, rgb_axis = plt.subplots(figsize=(15, 15))
-rgb_image = rgb_axis.imshow(
-    image,
-    extent=rgb_extent,
-    origin="lower",
-    interpolation="nearest",
-    vmin=0,
-    vmax=255,
-)
-rgb_axis.set_title("RGB emission image with [NII] 6584 line profiles")
-rgb_axis.set_xlabel("Projected x [pc]")
-rgb_axis.set_ylabel("Projected z [pc]")
-add_rgb_colorbars(rgb_with_profiles_figure)
-with warnings.catch_warnings():
-    warnings.simplefilter("ignore", RuntimeWarning)
-    add_profiles_to_rgb(m3d, rgb_axis, ref=3, image_proj_axis=1, nx=20, ny=20)
-save_fig(rgb_with_profiles_figure, fig_dir / "rgb_with_profiles.png")
-
-f, ax = plt.subplots()
-n2map = m3d.get_emis("N__2_658345A").sum(axis=PROJ_AXIS)
-hbmap = m3d.get_emis("H__1_486132A").sum(axis=PROJ_AXIS)
-o3map = m3d.get_emis("O__3_500684A").sum(axis=PROJ_AXIS)
-mask = np.logical_and.reduce([mapl > 0.01 * mapl.max() for mapl in (hbmap, o3map, n2map)])
-ax.scatter(np.log10(safe_divide(n2map, hbmap)[mask]), np.log10(safe_divide(o3map, hbmap)[mask]))
-ax.set_xlabel("log10([NII]/Hb)")
-ax.set_ylabel("log10([OIII]/Hb)")
-save_fig(f, fig_dir / "diagnostic_scatter.png")
+if not profile_files:
+    raise FileNotFoundError(f"No profile CSV files found in {PROFILE_DIR}")
+for profile_file in profile_files:
+    profile_file = profile_file.expanduser().resolve()
+    if not profile_file.is_file():
+        raise FileNotFoundError(profile_file)
+    run_profile(profile_file, include_xray=args.xray)
