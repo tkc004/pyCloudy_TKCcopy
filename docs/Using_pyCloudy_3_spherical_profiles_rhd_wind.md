@@ -3,7 +3,7 @@
 This example is identical to
 [`Using_pyCloudy_3_spherical_profiles_rhd`](../python_examples/Using_pyCloudy_3_spherical_profiles_rhd/Using_pyCloudy_3_spherical_profiles_rhd.py),
 but reads
-[`radial_profile_rhd_wind.csv`](../python_examples/Using_pyCloudy_3_spherical_profiles_rhd/radial_profile_rhd_wind.csv).
+[`radial_profile_rhd_wind.csv`](../python_examples/Using_pyCloudy_3_spherical_profiles_rhd_wind/radial_profile_rhd_wind.csv).
 
 The supplied profile represents a stellar wind with:
 

@@ -3,7 +3,7 @@ RHD stellar-wind radial-profile example
 
 This example is identical to
 ``Using_pyCloudy_3_spherical_profiles_rhd`` but reads
-``radial_profile_rhd_wind.csv`` from that example's directory. The supplied
+the local ``radial_profile_rhd_wind.csv`` file. The supplied
 profile represents a stellar wind with a mass-loss rate of
 ``10^-6 Msun/yr`` and a wind speed of ``1000 km/s``.
 

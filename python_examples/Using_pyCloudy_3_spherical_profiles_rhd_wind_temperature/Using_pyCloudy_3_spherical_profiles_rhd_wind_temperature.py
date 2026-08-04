@@ -2,11 +2,13 @@
 # coding: utf-8
 """Spherical pyCloudy model driven by an external RHD wind profile file.
 
-The CSV file uses radius in pc, velocity in km/s, and hydrogen density in atom
-cm^-3. Cloudy receives the density profile through ``dlaw table radius``; C3D
-receives the velocity profile through its user velocity function.
+The CSV file uses radius in pc, velocity in km/s, hydrogen density in atom
+cm^-3, and temperature in K. Cloudy receives radial density and temperature
+profiles through ``dlaw table radius`` and ``tlaw table radius``; C3D receives
+the velocity profile through its user velocity function.
 """
 
+import argparse
 import os
 import sys
 import warnings
@@ -15,7 +17,9 @@ from pathlib import Path
 import numpy as np
 
 script_dir = Path(__file__).resolve().parent
-sys.path.insert(0, str(script_dir.parents[0]))
+# Import the repository checkout rather than an older installed pyCloudy.
+sys.path.insert(0, str(script_dir.parents[1]))
+sys.path.insert(1, str(script_dir.parents[0]))
 from _example_utils import find_cloudy_exe, save_fig
 
 temp_model_dir = script_dir / "temp_models"
@@ -37,10 +41,14 @@ import pyCloudy as pc
 
 PROFILE_FILE = script_dir / "radial_profile_rhd_wind.csv"
 
-MODEL_NAME = "M3D_spherical_profiles_rhd_wind"
-DIM = 101
+MODEL_NAME = "M3D_spherical_profiles_rhd_wind_temperature"
+DIM = 151
 PROJ_AXIS = 0
 PROFILE_DISPLAY_LIMITS = (-40.0, 40.0)
+XRAY_FILE_SUFFIX = ".xray.cont"
+XRAY_MIN_KEV = 0.1
+XRAY_MAX_KEV = 10.0
+XRAY_ZONE_INTERVAL = 10
 EMIS_TAB = [
     "H  1  4861.32A", "H  1  6562.80A", "Ca B  5875.64A",
     "N  2  6583.45A", "O  1  6300.30A", "O  2  3726.03A",
@@ -51,34 +59,36 @@ EMIS_TAB = [
 ]
 
 
-def validate_profiles(radius_pc, velocity_kms, density_cm3):
+def validate_profiles(radius_pc, velocity_kms, density_cm3, temperature_k):
     radius_pc = np.asarray(radius_pc, dtype=float)
     velocity_kms = np.asarray(velocity_kms, dtype=float)
     density_cm3 = np.asarray(density_cm3, dtype=float)
-    if not (radius_pc.ndim == velocity_kms.ndim == density_cm3.ndim == 1):
+    temperature_k = np.asarray(temperature_k, dtype=float)
+    if not (radius_pc.ndim == velocity_kms.ndim == density_cm3.ndim == temperature_k.ndim == 1):
         raise ValueError("Radial profiles must be one-dimensional arrays")
-    if not (len(radius_pc) == len(velocity_kms) == len(density_cm3)):
+    if not (len(radius_pc) == len(velocity_kms) == len(density_cm3) == len(temperature_k)):
         raise ValueError("Radial profiles must have the same number of points")
     if len(radius_pc) < 2:
         raise ValueError("At least two radial profile points are required")
-    if np.any(radius_pc <= 0) or np.any(density_cm3 <= 0):
-        raise ValueError("Radii and hydrogen densities must be positive")
+    if np.any(radius_pc <= 0) or np.any(density_cm3 <= 0) or np.any(temperature_k <= 0):
+        raise ValueError("Radii, hydrogen densities, and temperatures must be positive")
     if np.any(np.diff(radius_pc) <= 0):
         raise ValueError("Radius values must be strictly increasing")
-    return radius_pc, velocity_kms, density_cm3
+    return radius_pc, velocity_kms, density_cm3, temperature_k
 
 
 def read_profiles(path):
     data = np.genfromtxt(path, delimiter=",", names=True, dtype=float)
-    required_columns = ("RADIUS_PC", "VELOCITY_KMS", "DENSITY_CM3")
+    required_columns = ("RADIUS_PC", "VELOCITY_KMS", "DENSITY_CM3", "TEMP_K")
     if data.dtype.names is None or any(column not in data.dtype.names for column in required_columns):
         raise ValueError(
-            "Profile file must have header: RADIUS_PC,VELOCITY_KMS,DENSITY_CM3"
+            "Profile file must have header: RADIUS_PC,VELOCITY_KMS,DENSITY_CM3,TEMP_K"
         )
     return validate_profiles(
         data["RADIUS_PC"],
         data["VELOCITY_KMS"],
         data["DENSITY_CM3"],
+        data["TEMP_K"],
     )
 
 
@@ -149,7 +159,24 @@ def density_table_commands(radius_pc, density_cm3):
     return commands
 
 
-def build_model(model_path, radius_pc, density_cm3):
+def temperature_table_commands(radius_pc, temperature_k):
+    """Return Cloudy commands using log10 radius in cm and log10 temperature."""
+    table_radius = np.r_[radius_pc[0] * 1.0e-6, radius_pc, radius_pc[-1] * 1.0e6]
+    # Cloudy's tlaw table stores log10 temperature, while TEMP_K is in K.
+    table_temperature = np.log10(
+        np.r_[temperature_k[0], temperature_k, temperature_k[-1]]
+    )
+    pairs = [
+        (np.log10(radius * pc.CST.PC), temperature)
+        for radius, temperature in zip(table_radius, table_temperature)
+    ]
+    commands = ["tlaw table radius"]
+    commands.extend("continue {0:.8f} {1:.8f}".format(*pair) for pair in pairs)
+    commands.append("end of tlaw")
+    return commands
+
+
+def build_model(model_path, radius_pc, density_cm3, temperature_k, include_xray=False):
     model = pc.CloudyInput(str(model_path))
     model.set_BB(80000.0, "q(H)", 49.0)
     model.set_grains()
@@ -159,7 +186,14 @@ def build_model(model_path, radius_pc, density_cm3):
     model.set_dlaw("table radius")
     # Cloudy requires table continuation rows immediately after the dlaw line.
     model._filling_factor = None
-    model.set_other(table_commands[1:])
+    model.set_other(table_commands[1:] + temperature_table_commands(radius_pc, temperature_k))
+    if include_xray:
+        model.set_other(
+            'save continuum "{0}" every {1}'.format(
+                XRAY_FILE_SUFFIX,
+                XRAY_ZONE_INTERVAL,
+            )
+        )
     model.set_emis_tab(EMIS_TAB)
     model.set_sphere()
     model.print_input(to_file=True, verbose=False)
@@ -208,7 +242,44 @@ def plot_profiles(m3d, x_pos, y_pos, title, velocity_limits=None):
     plt.legend()
 
 
-def plot_cloudy_radial_profiles(c_output):
+def plot_xray_luminosity_profile(c_output, continuum_path):
+    """Plot the radial 0.1--10 keV luminosity from Cloudy's per-zone continuum."""
+    continuum = np.loadtxt(continuum_path, comments="#", usecols=(0, 6))
+    n_zones = len(c_output.radius)
+    n_points = len(c_output.get_cont_x())
+    if continuum.shape[0] % n_points != 0:
+        raise ValueError("Per-zone X-ray continuum output has an incomplete spectrum")
+    n_saved_zones = continuum.shape[0] // n_points
+    continuum = continuum.reshape(n_saved_zones, n_points, 2)
+    zone_indices = np.arange(0, n_zones, XRAY_ZONE_INTERVAL)[:n_saved_zones]
+    if len(zone_indices) != n_saved_zones:
+        raise ValueError("Cloudy X-ray zone sampling exceeds the model zones")
+    energy_kev = continuum[0, :, 0] * pc.CST.RYD_EV / 1000.0
+    xray_mask = (energy_kev >= XRAY_MIN_KEV) & (energy_kev <= XRAY_MAX_KEV)
+    if not np.any(xray_mask):
+        raise ValueError("Cloudy continuum does not contain the requested X-ray band")
+    luminosity = np.trapz(
+        continuum[:, xray_mask, 1],
+        x=np.log(energy_kev[xray_mask]),
+        axis=1,
+    )
+    positive = luminosity > 0.0
+    figure, axis = plt.subplots(figsize=(10, 6))
+    axis.plot(
+        c_output.radius[zone_indices][positive] / pc.CST.PC,
+        luminosity[positive],
+        color="tab:purple",
+    )
+    axis.set_title("Cloudy radial X-ray luminosity (0.1--10 keV)")
+    axis.set_xlabel("Radius [pc]")
+    axis.set_ylabel(r"X-ray luminosity [erg s$^{-1}$]")
+    axis.set_yscale("log")
+    axis.grid(True, which="both", alpha=0.25)
+    figure.tight_layout()
+    save_fig(figure, fig_dir / "xray_luminosity_profile.png")
+
+
+def plot_cloudy_radial_profiles(c_output, continuum_path=None):
     """Save Cloudy electron-temperature and line-emissivity profiles."""
     radius_pc = c_output.radius / pc.CST.PC
 
@@ -217,6 +288,7 @@ def plot_cloudy_radial_profiles(c_output):
     temperature_axis.set_title("Cloudy radial electron temperature")
     temperature_axis.set_xlabel("Radius [pc]")
     temperature_axis.set_ylabel("Electron temperature [K]")
+    temperature_axis.set_yscale("log")
     temperature_axis.grid(True, which="both", alpha=0.25)
     temperature_figure.tight_layout()
     save_fig(temperature_figure, fig_dir / "temperature_profile.png")
@@ -239,6 +311,8 @@ def plot_cloudy_radial_profiles(c_output):
     line_axis.legend()
     line_figure.tight_layout()
     save_fig(line_figure, fig_dir / "emissivity_radial_profiles.png")
+    if continuum_path is not None:
+        plot_xray_luminosity_profile(c_output, continuum_path)
 
 
 def safe_divide(num, den):
@@ -280,9 +354,77 @@ def show_rgb_with_colorbars(image, extent):
     return figure
 
 
-def add_profiles_to_rgb(m3d, image_axis, ref, nx=20, ny=20):
+def make_rgb_image(red, green, blue):
+    """Normalize three projected emissivity maps into an RGB image."""
+    channels = []
+    for channel in (red, green, blue):
+        maximum = np.nanmax(channel)
+        channels.append(
+            np.zeros_like(channel, dtype=np.uint8)
+            if maximum <= 0.0
+            else np.clip(channel / maximum * 255.0, 0.0, 255.0).astype(np.uint8)
+        )
+    return np.stack(channels, axis=-1)
+
+
+def project_spherical_emissivity(
+    c_output, m3d, ref, proj_axis, pixel_samples=4, ray_samples=2049
+):
+    """Project a 1D spherical emissivity profile onto the C3D image plane.
+
+    The C3D grid coordinates are pixel locations, while Cloudy reports values
+    at many unequal radial zone centers.  Supersampling each image pixel and
+    integrating along the ray prevents narrow radial zones from becoming
+    conspicuous numerical rings in the projected image.
+    """
+    coordinates = [m3d.cub_coord.x_vec, m3d.cub_coord.y_vec, m3d.cub_coord.z_vec]
+    projected_axes = [axis for axis in range(3) if axis != proj_axis]
+    first, second = (coordinates[axis] for axis in projected_axes)
+    first_grid, second_grid = np.meshgrid(first, second, indexing="ij")
+    first_step = np.median(np.diff(first)) if len(first) > 1 else 0.0
+    second_step = np.median(np.diff(second)) if len(second) > 1 else 0.0
+    subpixel_offsets = np.linspace(-0.5, 0.5, pixel_samples, endpoint=False)
+    subpixel_offsets += 0.5 / pixel_samples
+
+    impact_parameter = np.concatenate(
+        [
+            np.sqrt(
+                (first_grid + first_step * offset_first) ** 2
+                + (second_grid + second_step * offset_second) ** 2
+            ).ravel()
+            for offset_first in subpixel_offsets
+            for offset_second in subpixel_offsets
+        ]
+    )
+    radius = np.asarray(c_output.radius, dtype=float)
+    emissivity = np.asarray(c_output.get_emis(ref), dtype=float)
+    # Cloudy values are zone-center values. Extend them to the origin and
+    # outer edge so the interpolation does not create a hollow center.
+    radius = np.r_[0.0, radius, radius[-1]]
+    emissivity = np.r_[emissivity[0], emissivity, emissivity[-1]]
+    ray_coordinate = np.linspace(-radius[-1], radius[-1], ray_samples)
+    ray_step = ray_coordinate[1] - ray_coordinate[0]
+    projected = np.empty(impact_parameter.size)
+    chunk_size = 512
+    for start in range(0, impact_parameter.size, chunk_size):
+        stop = start + chunk_size
+        ray_radius = np.sqrt(
+            impact_parameter[start:stop, None] ** 2 + ray_coordinate[None, :] ** 2
+        )
+        ray_emissivity = np.interp(
+            ray_radius, radius, emissivity, left=0.0, right=0.0
+        )
+        projected[start:stop] = np.trapz(ray_emissivity, dx=ray_step, axis=1)
+
+    n_subpixels = pixel_samples**2
+    image = projected.reshape(n_subpixels, *first_grid.shape).mean(axis=0)
+    return image
+
+
+def add_profiles_to_rgb(m3d, image_axis, ref, image_proj_axis=1, nx=20, ny=20):
     """Overlay profile panels using the RGB axes position as the coordinate frame."""
-    profiles = m3d.get_profile(ref, axis="x")
+    profile_axis = ("x", "y", "z")[image_proj_axis]
+    profiles = m3d.get_profile(ref, axis=profile_axis)
     size_x, size_y = profiles.shape[1:]
     sx = int(size_x / nx)
     sy = int(size_y / ny)
@@ -316,30 +458,35 @@ def add_profiles_to_rgb(m3d, image_axis, ref, nx=20, ny=20):
 
 
 def other_plots(m3d, proj_axis, n_cut):
+    c_output = m3d.m[0]
+    hbmap = project_spherical_emissivity(c_output, m3d, "H__1_486132A", proj_axis)
+    niimap = project_spherical_emissivity(c_output, m3d, "N__2_658345A", proj_axis)
+    oiiimap = project_spherical_emissivity(c_output, m3d, "O__3_500684A", proj_axis)
+
     plt.subplot(331)
     show_image(
-        m3d.get_emis("H__1_486132A").sum(axis=proj_axis) * m3d.cub_coord.cell_size,
+        hbmap,
         "Hb",
         r"Emissivity [erg s$^{-1}$ cm$^{-2}$]",
     )
 
     plt.subplot(332)
     show_image(
-        m3d.get_emis("N__2_658345A").sum(axis=proj_axis) * m3d.cub_coord.cell_size,
+        niimap,
         "[NII]",
         r"Emissivity [erg s$^{-1}$ cm$^{-2}$]",
     )
 
     plt.subplot(333)
     show_image(
-        m3d.get_emis("O__3_500684A").sum(axis=proj_axis) * m3d.cub_coord.cell_size,
+        oiiimap,
         "[OIII]",
         r"Emissivity [erg s$^{-1}$ cm$^{-2}$]",
     )
 
-    hb = m3d.get_emis("H__1_486132A").sum(axis=proj_axis)
-    nii = m3d.get_emis("N__2_658345A").sum(axis=proj_axis)
-    oiii = m3d.get_emis("O__3_500684A").sum(axis=proj_axis)
+    hb = hbmap
+    nii = niimap
+    oiii = oiiimap
     plt.subplot(334)
     show_image(safe_divide(nii, hb), "[NII]/Hb", "Ratio [dimensionless]")
     plt.subplot(335)
@@ -372,7 +519,15 @@ def other_plots(m3d, proj_axis, n_cut):
     plt.contour(weighted_map, levels=[1.0])
 
 
-radius_pc, velocity_kms, density_cm3 = read_profiles(PROFILE_FILE)
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument(
+    "--xray",
+    action="store_true",
+    help="save and plot the radial 0.1--10 keV X-ray luminosity",
+)
+args = parser.parse_args()
+
+radius_pc, velocity_kms, density_cm3, temperature_k = read_profiles(PROFILE_FILE)
 plot_input_profiles(radius_pc, velocity_kms, density_cm3)
 poly_params = [20.0, 60.0]
 poly_velocity_kms = polynomial_velocity_profile(radius_pc, poly_params)
@@ -387,11 +542,12 @@ plot_input_profiles(
 cloudy_exe = find_cloudy_exe(script_dir)
 pc.config.cloudy_exe = str(cloudy_exe)
 model_path = temp_model_dir / MODEL_NAME
-build_model(model_path, radius_pc, density_cm3)
+build_model(model_path, radius_pc, density_cm3, temperature_k, include_xray=args.xray)
 pc.print_make_file(dir_=str(temp_model_dir) + "/")
 pc.run_cloudy(dir_=str(temp_model_dir) + "/", n_proc=6, model_name=MODEL_NAME, use_make=True)
 c_output = pc.CloudyModel(str(model_path))
-plot_cloudy_radial_profiles(c_output)
+xray_path = model_path.with_name(model_path.name + XRAY_FILE_SUFFIX) if args.xray else None
+plot_cloudy_radial_profiles(c_output, xray_path)
 m3d = pc.C3D(c_output, dims=DIM, center=True, n_dim=1)
 
 m3d.set_velocity(params=poly_params)
@@ -423,7 +579,11 @@ plt.figure(figsize=(15, 15))
 other_plots(m3d, PROJ_AXIS, n_cut)
 save_fig(plt.gcf(), fig_dir / "derived_maps.png")
 
-image = m3d.get_RGB(list_emis=["N__2_658345A", "O__3_500684A", "H__1_486132A"])
+rgb_maps = [
+    project_spherical_emissivity(c_output, m3d, ref, proj_axis=1)
+    for ref in ("N__2_658345A", "O__3_500684A", "H__1_486132A")
+]
+image = make_rgb_image(*rgb_maps)
 rgb_extent = [
     m3d.cub_coord.x_vec[0] / pc.CST.PC,
     m3d.cub_coord.x_vec[-1] / pc.CST.PC,
@@ -447,7 +607,7 @@ rgb_axis.set_ylabel("Projected z [pc]")
 add_rgb_colorbars(rgb_with_profiles_figure)
 with warnings.catch_warnings():
     warnings.simplefilter("ignore", RuntimeWarning)
-    add_profiles_to_rgb(m3d, rgb_axis, ref=3, nx=20, ny=20)
+    add_profiles_to_rgb(m3d, rgb_axis, ref=3, image_proj_axis=1, nx=20, ny=20)
 save_fig(rgb_with_profiles_figure, fig_dir / "rgb_with_profiles.png")
 
 f, ax = plt.subplots()
