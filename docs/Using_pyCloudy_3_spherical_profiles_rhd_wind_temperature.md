@@ -76,15 +76,11 @@ corresponding directory for every processed CSV.
 
 ### Input RHD Profiles
 
-The first plot shows the density and velocity supplied by the RHD simulation.
-The density uses the left axis, while the velocity uses the right axis and a
-logarithmic scale. The second plot replaces the supplied velocity with C3D's
-default polynomial comparison law, `params=[20, 60]`; it is a comparison only
-and is not the velocity used by the user-profile result.
+The plot shows the density and velocity supplied by the RHD simulation. The
+density uses the left axis, while the velocity uses the right axis and a
+logarithmic scale.
 
 ![Input density and velocity profiles](../python_examples/Using_pyCloudy_3_spherical_profiles_rhd_wind_temperature/figures/radial_profile_1Myr/input_radial_profiles.png)
-
-![Input density with polynomial velocity comparison](../python_examples/Using_pyCloudy_3_spherical_profiles_rhd_wind_temperature/figures/radial_profile_1Myr/input_radial_profiles_wpolyv.png)
 
 ### Cloudy Preprocessing
 
@@ -100,12 +96,9 @@ constructs the Cartesian structure.
 
 ### C3D Line Profiles
 
-The default profile uses C3D's polynomial velocity law. The user-velocity
-profile uses the velocity column from the RHD CSV, interpolated onto the C3D
-grid. These profiles are extracted along the selected central line of sight
-and show Hbeta, [NII] 6584, and [OIII] 5007.
-
-![Line profiles with the default polynomial velocity](../python_examples/Using_pyCloudy_3_spherical_profiles_rhd_wind_temperature/figures/radial_profile_1Myr/profile_default.png)
+The user-velocity profile uses the velocity column from the RHD CSV,
+interpolated onto the C3D grid. It is extracted along the selected central
+line of sight and shows Hbeta, [NII] 6584, and [OIII] 5007.
 
 ![Line profiles with the RHD velocity profile](../python_examples/Using_pyCloudy_3_spherical_profiles_rhd_wind_temperature/figures/radial_profile_1Myr/profile_user_velocity.png)
 
