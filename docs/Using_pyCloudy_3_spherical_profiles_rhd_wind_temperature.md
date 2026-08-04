@@ -68,6 +68,69 @@ enabled, the example saves and plots the radial X-ray luminosity integrated
 over `0.1--10 keV`, sampled every tenth Cloudy zone to limit the continuum
 output size.
 
-For example, the 1 Myr output includes:
+## Diagnostic Figures
+
+The following gallery shows the output for
+`radial_profile_1Myr.csv`. The same set of figures is written into the
+corresponding directory for every processed CSV.
+
+### Input RHD Profiles
+
+The first plot shows the density and velocity supplied by the RHD simulation.
+The density uses the left axis, while the velocity uses the right axis and a
+logarithmic scale. The second plot replaces the supplied velocity with C3D's
+default polynomial comparison law, `params=[20, 60]`; it is a comparison only
+and is not the velocity used by the user-profile result.
+
+![Input density and velocity profiles](../python_examples/Using_pyCloudy_3_spherical_profiles_rhd_wind_temperature/figures/radial_profile_1Myr/input_radial_profiles.png)
+
+![Input density with polynomial velocity comparison](../python_examples/Using_pyCloudy_3_spherical_profiles_rhd_wind_temperature/figures/radial_profile_1Myr/input_radial_profiles_wpolyv.png)
+
+### Cloudy Preprocessing
+
+Cloudy receives the RHD density and temperature profiles and calculates the
+photoionization and emissivity structure using `q(H)=10^49 s^-1`. The
+temperature plot shows Cloudy's radial electron temperature on a logarithmic
+scale. The emissivity plot shows the local Cloudy emissivities before C3D
+constructs the Cartesian structure.
+
+![Cloudy radial electron temperature](../python_examples/Using_pyCloudy_3_spherical_profiles_rhd_wind_temperature/figures/radial_profile_1Myr/temperature_profile.png)
 
 ![Cloudy radial line emissivities](../python_examples/Using_pyCloudy_3_spherical_profiles_rhd_wind_temperature/figures/radial_profile_1Myr/emissivity_radial_profiles.png)
+
+### C3D Line Profiles
+
+The default profile uses C3D's polynomial velocity law. The user-velocity
+profile uses the velocity column from the RHD CSV, interpolated onto the C3D
+grid. These profiles are extracted along the selected central line of sight
+and show Hbeta, [NII] 6584, and [OIII] 5007.
+
+![Line profiles with the default polynomial velocity](../python_examples/Using_pyCloudy_3_spherical_profiles_rhd_wind_temperature/figures/radial_profile_1Myr/profile_default.png)
+
+![Line profiles with the RHD velocity profile](../python_examples/Using_pyCloudy_3_spherical_profiles_rhd_wind_temperature/figures/radial_profile_1Myr/profile_user_velocity.png)
+
+### Projected Diagnostics
+
+The derived maps show projected Hbeta, [NII], and [OIII] emissivities, their
+ratios to Hbeta, an O+ ionic-fraction cut, and additional ionic diagnostics.
+For spherical emissivity maps, the script uses supersampled line-of-sight
+projection of the Cloudy radial emissivities to avoid numerical radial rings
+from coarse Cartesian sampling.
+
+![Derived emissivity and ionic maps](../python_examples/Using_pyCloudy_3_spherical_profiles_rhd_wind_temperature/figures/radial_profile_1Myr/derived_maps.png)
+
+The compact RGB image uses [NII] 6584 in red, [OIII] 5007 in green, and Hbeta
+4861 in blue. Each channel is independently normalized and identified by its
+color bar.
+
+![RGB emission image](../python_examples/Using_pyCloudy_3_spherical_profiles_rhd_wind_temperature/figures/radial_profile_1Myr/rgb_compact.png)
+
+The overlay version places the [NII] line profile tiles in the same projected
+x-z coordinate frame as the RGB image.
+
+![RGB image with line profiles](../python_examples/Using_pyCloudy_3_spherical_profiles_rhd_wind_temperature/figures/radial_profile_1Myr/rgb_with_profiles.png)
+
+The diagnostic scatter plot compares the [NII]/Hbeta and [OIII]/Hbeta ratios
+for pixels above the emission threshold.
+
+![Emission-line diagnostic scatter](../python_examples/Using_pyCloudy_3_spherical_profiles_rhd_wind_temperature/figures/radial_profile_1Myr/diagnostic_scatter.png)
