@@ -16,6 +16,31 @@ Originally version (pyCloudy) is developed by Christophe Morisset
 This version (pyCloudy_TKCcopy) is a fork of the original pyCloudy, maintained
 by Tsang Keung Chan, with some modifications.
 
+## Additions in This Fork
+
+Compared with the original pyCloudy distribution, this repository adds and
+documents the following workflow improvements:
+
+- `CloudyInput` helpers for constant temperatures and radial temperature laws,
+  including `set_cste_temperature()` and `set_tlaw()`; see
+  [`CloudyInput.md`](CloudyInput.md).
+- Spherical `Using_pyCloudy_3` examples driven by external radius, velocity,
+  density, and temperature profiles in CSV files.
+- RHD and stellar-wind variants with `q(H)=10^49 s^-1`, user-defined C3D
+  velocity fields, Cloudy radial temperature input, radial emissivity and
+  temperature plots, line profiles, derived maps, and RGB diagnostics.
+- Batch processing of profile CSV files with isolated
+  `figures/<csv-stem>/` and `temp_models/<csv-stem>/` output directories.
+- Optional sampled X-ray continuum and radial X-ray luminosity calculations,
+  disabled by default to avoid large per-zone continuum caches.
+- Spherical emissivity projection, RGB channel labels and color bars, explicit
+  physical units, and improved profile/image axis alignment for C3D figures.
+- Additional documentation, example READMEs, generated figure checks, and
+  tests for new temperature-input behavior when Cloudy is available.
+
+These additions are maintained alongside the original notebooks and examples;
+the corresponding notebook sources remain under [`pyCloudy/docs/`](../pyCloudy/docs/).
+
 ## What pyCloudy Does
 
 pyCloudy_TKCcopy is a companion library for the Cloudy photoionization code. It
