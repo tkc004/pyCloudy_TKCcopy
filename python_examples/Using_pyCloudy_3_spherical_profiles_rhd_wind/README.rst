@@ -7,6 +7,10 @@ the local ``radial_profile_rhd_wind.csv`` file. The supplied
 profile represents a stellar wind with a mass-loss rate of
 ``10^-6 Msun/yr`` and a wind speed of ``1000 km/s``.
 
+The CSV radial profile comes from the 1D RadHydropy
+``DynamicStromgrenSpherePhotoheating20pcStellarWind1D`` simulation:
+https://github.com/tkc004/RadHydropy/tree/main/example/DynamicStromgrenSpherePhotoheating20pcStellarWind1D
+
 Only the ``RADIUS_PC``, ``VELOCITY_KMS``, and ``DENSITY_CM3`` columns are used.
 The additional ``TEMP_K`` column in the CSV is intentionally ignored for now.
 No Cloudy wind command is added; the radial velocity and density fields come
