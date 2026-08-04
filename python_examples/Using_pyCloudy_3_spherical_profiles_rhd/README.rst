@@ -15,6 +15,5 @@ The CSV file must contain the columns ``RADIUS_PC``, ``VELOCITY_KMS``, and
 ``DENSITY_CM3``. The script writes Cloudy model files under ``temp_models/``
 and diagnostic figures under ``figures/`` in this example directory.
 
-For the polynomial velocity-law definition used by the comparison figure, see
-``docs/C3D.md``. For the complete spherical-profile workflow description, see
+For the complete spherical-profile workflow description, see
 ``docs/Using_pyCloudy_3_spherical_profiles.md``.

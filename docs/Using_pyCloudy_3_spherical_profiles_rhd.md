@@ -36,6 +36,5 @@ RADIUS_PC,VELOCITY_KMS,DENSITY_CM3
 Radius is in pc, velocity is in km/s, and hydrogen density is in cm^-3. The
 profile is interpolated onto the C3D grid for the user-velocity line profile.
 
-The polynomial-law comparison uses the same C3D default parameters as the
-base example, `params=[20, 60]`. See [`C3D.md`](C3D.md) for the polynomial
-velocity-law formula and parameter definitions.
+The line-profile figure uses the velocity profile supplied by the RHD CSV,
+interpolated onto the C3D grid.

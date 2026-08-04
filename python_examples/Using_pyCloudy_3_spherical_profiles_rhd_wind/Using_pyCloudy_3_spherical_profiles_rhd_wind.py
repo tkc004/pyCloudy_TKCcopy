@@ -121,19 +121,6 @@ def plot_input_profiles(
     save_fig(figure, fig_dir / filename)
 
 
-def polynomial_velocity_profile(radius_pc, params):
-    """Evaluate C3D's polynomial radial velocity law in km/s."""
-    radius_pc = np.asarray(radius_pc, dtype=float)
-    normalized_radius = radius_pc / radius_pc[-1]
-    velocity_kms = sum(
-        parameter * normalized_radius**power
-        for power, parameter in enumerate(params)
-    )
-    # C3D explicitly sets the velocity vector to zero at the origin.
-    velocity_kms[radius_pc == 0.0] = 0.0
-    return velocity_kms
-
-
 def density_table_commands(radius_pc, density_cm3):
     """Return Cloudy commands for a log-radius/log-density table."""
     # Extend the table slightly so Cloudy never evaluates exactly outside it.
@@ -374,16 +361,6 @@ def other_plots(m3d, proj_axis, n_cut):
 
 radius_pc, velocity_kms, density_cm3 = read_profiles(PROFILE_FILE)
 plot_input_profiles(radius_pc, velocity_kms, density_cm3)
-poly_params = [20.0, 60.0]
-poly_velocity_kms = polynomial_velocity_profile(radius_pc, poly_params)
-plot_input_profiles(
-    radius_pc,
-    poly_velocity_kms,
-    density_cm3,
-    title="Input density with C3D polynomial velocity (params=[20, 60])",
-    filename="input_radial_profiles_wpolyv.png",
-    velocity_label="C3D polynomial velocity",
-)
 cloudy_exe = find_cloudy_exe(script_dir)
 pc.config.cloudy_exe = str(cloudy_exe)
 model_path = temp_model_dir / MODEL_NAME
@@ -394,20 +371,8 @@ c_output = pc.CloudyModel(str(model_path))
 plot_cloudy_radial_profiles(c_output)
 m3d = pc.C3D(c_output, dims=DIM, center=True, n_dim=1)
 
-m3d.set_velocity(params=poly_params)
-m3d.config_profile(size_spectrum=51, vel_max=50.0, v_turb=0.01)
-n_cut = (DIM - 1) // 2
-
-plt.figure(figsize=(10, 10))
-plot_profiles(
-    m3d,
-    n_cut,
-    n_cut,
-    "Line profiles: default polynomial velocity law (params=[20, 60])",
-)
-save_fig(plt.gcf(), fig_dir / "profile_default.png")
-
 set_user_velocity(m3d, radius_pc, velocity_kms)
+n_cut = (DIM - 1) // 2
 
 plt.figure(figsize=(10, 10))
 plot_profiles(
