@@ -22,3 +22,24 @@ The X-ray continuum calculation is disabled by default. Enable it explicitly
 with ``--xray`` to save the per-zone continuum and write the X-ray figure.
 
 Figures are written under ``figures/`` in this example directory.
+
+
+Parameters of the simulations:
+  radiative_transfer_source_photon_rate:
+    value: 1.0e49
+    unit: 1/s
+  wind_mass_loss_rate:
+    value: 1.0e-6
+    unit: Msun/yr
+  wind_velocity:
+    value: 1000.0
+    unit: km/s
+  wind_temperature:
+    value: 100.0
+    unit: K
+  hydrogen_number_density:
+    value: 100.0
+    unit: 1/cm**3
+  initial_temperature:
+    value: 100.0
+    unit: K
