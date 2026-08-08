@@ -21,3 +21,4 @@ Cloudy_exe/
 __pycache__/
 .pytest_cache
 cooling_models/
+*.h5
