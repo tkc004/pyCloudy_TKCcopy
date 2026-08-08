@@ -20,3 +20,4 @@ Cloudy_exe/
 **/output.txt
 __pycache__/
 .pytest_cache
+cooling_models/
