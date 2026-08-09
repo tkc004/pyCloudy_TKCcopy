@@ -31,7 +31,10 @@ Requirements: ``numpy``, ``h5py``, and a working Cloudy executable.
 from __future__ import annotations
 
 import argparse
+import errno
 import itertools
+import os
+import platform
 import shutil
 import subprocess
 import sys
@@ -84,14 +87,32 @@ def parse_args():
     return parser.parse_args()
 
 
+def executable_matches_host(path):
+    """Return whether a native executable appears compatible with this host."""
+    try:
+        magic = path.read_bytes()[:4]
+    except OSError:
+        return False
+    system = platform.system()
+    if system == "Linux":
+        return magic == b"\x7fELF" or magic.startswith(b"#!")
+    if system == "Darwin":
+        return magic in (b"\xfe\xed\xfa\xce", b"\xfe\xed\xfa\xcf",
+                         b"\xce\xfa\xed\xfe", b"\xcf\xfa\xed\xfe")
+    if system == "Windows":
+        return magic[:2] == b"MZ"
+    return True
+
+
 def default_cloudy_executable() -> Path:
-    """Find the newest bundled Cloudy executable or one available on PATH."""
+    """Find a host-compatible bundled Cloudy or one available on PATH."""
     bundled = sorted((REPO_ROOT / "Cloudy_exe" / "Cloudy").glob("*/source/cloudy.exe"))
-    if bundled:
-        return bundled[-1]
     found = shutil.which("cloudy.exe") or shutil.which("cloudy")
     if found:
         return Path(found)
+    compatible = [path for path in bundled if executable_matches_host(path)]
+    if compatible:
+        return compatible[-1]
     raise RuntimeError("Cloudy executable not found; pass --cloudy-exe.")
 
 
@@ -132,7 +153,24 @@ def cooling_file_is_usable(path):
 
 def run_cloudy_rate(model_name, temperature, nH, metallicity, log_u, args):
     """Run or resume one isolated Cloudy model and return mean Ctot."""
-    model_path = args.work_dir / model_name
+    # Keep every new Cloudy invocation in a private directory.  Unique
+    # prefixes alone are insufficient because Cloudy can also create shared
+    # temporary files in its current working directory.  Retain compatibility
+    # with completed models from older runs, which stored files directly in
+    # --work-dir.
+    legacy_path = args.work_dir / model_name
+    legacy_out = legacy_path.with_suffix(".out")
+    legacy_cool = legacy_path.with_suffix(".cool")
+    legacy_reusable = (
+        args.resume and legacy_out.exists() and cooling_file_is_usable(legacy_cool)
+    )
+    if legacy_reusable:
+        model_dir = args.work_dir
+        model_path = legacy_path
+    else:
+        model_dir = args.work_dir / model_name
+        model_dir.mkdir(parents=True, exist_ok=True)
+        model_path = model_dir / model_name
     output_path = model_path.with_suffix(".out")
     cooling_path = model_path.with_suffix(".cool")
     reusable = args.resume and output_path.exists() and cooling_file_is_usable(cooling_path)
@@ -140,14 +178,24 @@ def run_cloudy_rate(model_name, temperature, nH, metallicity, log_u, args):
         make_cloudy_input(model_path, temperature, nH, metallicity, log_u, args.teff)
 
     if not reusable:
-        completed = subprocess.run(
-            [str(args.cloudy_exe), "-p", model_name],
-            cwd=model_path.parent,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            check=False,
-        )
+        try:
+            completed = subprocess.run(
+                [str(args.cloudy_exe), "-p", model_name],
+                cwd=model_dir,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                check=False,
+                env={**os.environ, "OMP_NUM_THREADS": "1"},
+            )
+        except OSError as exc:
+            if exc.errno == errno.ENOEXEC:
+                raise RuntimeError(
+                    f"Cloudy executable is not native to this host: {args.cloudy_exe}. "
+                    "Compile Cloudy on the cluster or pass a compatible Linux path "
+                    "with --cloudy-exe."
+                ) from exc
+            raise
         if completed.returncode != 0:
             log_path = model_path.with_suffix(".cloudy.log")
             log_path.write_text(completed.stdout or "", encoding="utf-8")
@@ -265,6 +313,11 @@ def main():
     args.cloudy_exe = args.cloudy_exe or default_cloudy_executable()
     if not args.cloudy_exe.exists():
         raise SystemExit(f"ERROR: Cloudy executable does not exist: {args.cloudy_exe}")
+    if not executable_matches_host(args.cloudy_exe):
+        raise SystemExit(
+            f"ERROR: Cloudy executable is not compatible with {platform.system()}: "
+            f"{args.cloudy_exe}. Compile Cloudy on this host or pass --cloudy-exe."
+        )
     args.work_dir.mkdir(parents=True, exist_ok=True)
 
     temperatures = np.logspace(args.logT_min, args.logT_max, args.nT)
