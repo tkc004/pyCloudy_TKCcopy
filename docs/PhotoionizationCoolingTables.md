@@ -43,9 +43,9 @@ data/single_model_test_Z1_HHe.h5
 data/single_model_test_Z1_metals.h5
 ```
 
-The metallicity axis is retained as a one-element axis in each file. Cooling
-rates are stored in `erg cm^-3 s^-1` in the dataset
-`cooling_erg_cm-3_s` with axis order
+The metallicity axis is retained as a one-element axis in each file. Heating
+and cooling rates are stored in `erg cm^-3 s^-1` in the datasets
+`heating_erg_cm-3_s` and `cooling_erg_cm-3_s`, respectively, with axis order
 `[metallicity, temperature, hydrogen_density, logU]`.
 
 ## Full-grid example
@@ -84,8 +84,9 @@ metal cooling while preserving the separate hydrogen and helium contribution.
 
 ## Resume and retained Cloudy files
 
-The script writes a checkpoint CSV in `data/` while running. Resume a stopped
-run with the same grid and `--resume`:
+The script writes a checkpoint CSV in `data/` while running. It stores H/He
+and metal heating and cooling columns for each completed cell. Resume a
+stopped run with the same grid and `--resume`:
 
 ```bash
 python tools/generate_photoionization_cooling_table.py \

@@ -183,6 +183,17 @@ def cooling_file_is_usable(path):
     return bool(np.any(np.isfinite(np.atleast_1d(values))))
 
 
+def heating_file_is_usable(path):
+    """Return whether a saved heating file contains at least one Htot value."""
+    if not path.exists() or path.stat().st_size == 0:
+        return False
+    try:
+        values = np.genfromtxt(path, comments="#", usecols=(2,), dtype=float)
+    except (OSError, ValueError):
+        return False
+    return bool(np.any(np.isfinite(np.atleast_1d(values))))
+
+
 class CloudyCellRejected(RuntimeError):
     """A Cloudy cell produced an ionization-convergence failure."""
 
@@ -236,8 +247,11 @@ def run_cloudy_rate(model_name, temperature, nH, metallicity, log_u, args,
     legacy_path = args.work_dir / model_name
     legacy_out = legacy_path.with_suffix(".out")
     legacy_cool = legacy_path.with_suffix(".cool")
+    legacy_heat = legacy_path.with_suffix(".heat")
     legacy_reusable = (
-        args.resume and legacy_out.exists() and cooling_file_is_usable(legacy_cool)
+        args.resume and legacy_out.exists()
+        and cooling_file_is_usable(legacy_cool)
+        and heating_file_is_usable(legacy_heat)
     )
     if legacy_reusable:
         model_dir = args.work_dir
@@ -248,7 +262,12 @@ def run_cloudy_rate(model_name, temperature, nH, metallicity, log_u, args,
         model_path = model_dir / model_name
     output_path = model_path.with_suffix(".out")
     cooling_path = model_path.with_suffix(".cool")
-    reusable = args.resume and output_path.exists() and cooling_file_is_usable(cooling_path)
+    heating_path = model_path.with_suffix(".heat")
+    reusable = (
+        args.resume and output_path.exists()
+        and cooling_file_is_usable(cooling_path)
+        and heating_file_is_usable(heating_path)
+    )
     if not reusable:
         if model_dir != args.work_dir and model_dir.exists():
             shutil.rmtree(model_dir)
@@ -302,7 +321,8 @@ def run_cloudy_rate(model_name, temperature, nH, metallicity, log_u, args,
             f"{model_name}: Cloudy reported {failures} ionization failures"
         )
 
-    # The fourth numeric column in ``save last cooling`` is Ctot.  Read this
+    # The fourth numeric column in ``save last cooling`` is Ctot, and the
+    # third numeric column in ``save last heating`` is Htot.  Read these
     # file directly instead of loading every Cloudy extension through
     # CloudyModel; this also tolerates runs that do not produce auxiliary
     # radius/heat files under heavy parallel load.
@@ -316,24 +336,41 @@ def run_cloudy_rate(model_name, temperature, nH, metallicity, log_u, args,
     cooling = cooling[np.isfinite(cooling)]
     if cooling.size == 0:
         raise RuntimeError(f"No finite cooling values were produced for {model_name}")
-    rate = float(np.mean(cooling))
+    heating = np.genfromtxt(
+        heating_path,
+        comments="#",
+        usecols=(2,),
+        dtype=float,
+    )
+    heating = np.atleast_1d(np.asarray(heating, dtype=float))
+    heating = heating[np.isfinite(heating)]
+    if heating.size == 0:
+        raise RuntimeError(f"No finite heating values were produced for {model_name}")
+    cooling_rate = float(np.mean(cooling))
+    heating_rate = float(np.mean(heating))
     cleanup_model_artifacts(
         model_name, model_dir, args.work_dir, args.keep_cloudy_files
     )
-    return rate
+    return cooling_rate, heating_rate
 
 
 def run_one(task, args):
     """Run total and H/He models and return their separated rates."""
     index, temperature, nH, metallicity, log_u = task
-    total = run_cloudy_rate(
+    total_cooling, total_heating = run_cloudy_rate(
         f"total_model_{index:07d}", temperature, nH, metallicity, log_u, args
     )
-    hhe = run_cloudy_rate(
+    hhe_cooling, hhe_heating = run_cloudy_rate(
         f"hhe_model_{index:07d}", temperature, nH, metallicity, log_u, args,
         hhe=True,
     )
-    return index, hhe, total - hhe
+    return (
+        index,
+        hhe_cooling,
+        total_cooling - hhe_cooling,
+        hhe_heating,
+        total_heating - hhe_heating,
+    )
 
 
 def compute_grid(temperatures, densities, metallicities, log_us, args):
@@ -341,6 +378,8 @@ def compute_grid(temperatures, densities, metallicities, log_us, args):
     shape = (len(metallicities), len(temperatures), len(densities), len(log_us))
     cooling_hhe = np.full(shape, np.nan, dtype=float)
     cooling_metals = np.full(shape, np.nan, dtype=float)
+    heating_hhe = np.full(shape, np.nan, dtype=float)
+    heating_metals = np.full(shape, np.nan, dtype=float)
     tasks = []
     index = 0
     for temperature, nH, metallicity, log_u in itertools.product(
@@ -359,7 +398,12 @@ def compute_grid(temperatures, densities, metallicities, log_us, args):
                 if row.get("status", "complete") == "rejected":
                     rejected_indices.add(row_index)
                 else:
-                    completed_rows[row_index] = row
+                    required_rates = (
+                        "hhe_cooling_erg_cm-3_s", "metal_cooling_erg_cm-3_s",
+                        "hhe_heating_erg_cm-3_s", "metal_heating_erg_cm-3_s",
+                    )
+                    if all(row.get(name, "") not in ("", None) for name in required_rates):
+                        completed_rows[row_index] = row
         for index, row in completed_rows.items():
             if 0 <= index < len(tasks):
                 _, temperature, nH, metallicity, log_u = tasks[index]
@@ -373,6 +417,8 @@ def compute_grid(temperatures, densities, metallicities, log_us, args):
                     )
                     cooling_hhe[z, t, d, u] = float(row["hhe_cooling_erg_cm-3_s"])
                     cooling_metals[z, t, d, u] = float(row["metal_cooling_erg_cm-3_s"])
+                    heating_hhe[z, t, d, u] = float(row["hhe_heating_erg_cm-3_s"])
+                    heating_metals[z, t, d, u] = float(row["metal_heating_erg_cm-3_s"])
 
     checkpoint.parent.mkdir(parents=True, exist_ok=True)
     checkpoint_exists = checkpoint.exists()
@@ -382,7 +428,8 @@ def compute_grid(temperatures, densities, metallicities, log_us, args):
         fieldnames=[
             "index", "temperature_K", "nH_cm-3", "metallicity_Zsun",
             "log10_ionization_parameter", "hhe_cooling_erg_cm-3_s",
-            "metal_cooling_erg_cm-3_s", "status", "error",
+            "metal_cooling_erg_cm-3_s", "hhe_heating_erg_cm-3_s",
+            "metal_heating_erg_cm-3_s", "status", "error",
         ],
     )
     if not checkpoint_exists:
@@ -422,7 +469,10 @@ def compute_grid(temperatures, densities, metallicities, log_us, args):
                 task = in_flight.pop(future)
                 _, temperature, nH, metallicity, log_u = task
                 try:
-                    index, hhe_rate, metal_rate = future.result()
+                    (
+                        index, hhe_rate, metal_rate,
+                        hhe_heating_rate, metal_heating_rate,
+                    ) = future.result()
                 except CloudyCellRejected as exc:
                     index = task[0]
                     checkpoint_writer.writerow({
@@ -433,6 +483,8 @@ def compute_grid(temperatures, densities, metallicities, log_us, args):
                         "log10_ionization_parameter": log_u,
                         "hhe_cooling_erg_cm-3_s": "",
                         "metal_cooling_erg_cm-3_s": "",
+                        "hhe_heating_erg_cm-3_s": "",
+                        "metal_heating_erg_cm-3_s": "",
                         "status": "rejected",
                         "error": str(exc),
                     })
@@ -448,6 +500,8 @@ def compute_grid(temperatures, densities, metallicities, log_us, args):
                 z, t, d, u = coordinates[(temperature, nH, metallicity, log_u)]
                 cooling_hhe[z, t, d, u] = hhe_rate
                 cooling_metals[z, t, d, u] = metal_rate
+                heating_hhe[z, t, d, u] = hhe_heating_rate
+                heating_metals[z, t, d, u] = metal_heating_rate
                 checkpoint_writer.writerow({
                     "index": index,
                     "temperature_K": temperature,
@@ -456,6 +510,8 @@ def compute_grid(temperatures, densities, metallicities, log_us, args):
                     "log10_ionization_parameter": log_u,
                     "hhe_cooling_erg_cm-3_s": hhe_rate,
                     "metal_cooling_erg_cm-3_s": metal_rate,
+                    "hhe_heating_erg_cm-3_s": hhe_heating_rate,
+                    "metal_heating_erg_cm-3_s": metal_heating_rate,
                     "status": "complete",
                     "error": "",
                 })
@@ -468,7 +524,7 @@ def compute_grid(temperatures, densities, metallicities, log_us, args):
                     continue
                 in_flight[executor.submit(run_one, next_task, args)] = next_task
     checkpoint_handle.close()
-    return cooling_hhe, cooling_metals
+    return cooling_hhe, cooling_metals, heating_hhe, heating_metals
 
 
 def coordinates_for_task(index, tasks, metallicities, temperatures, densities, log_us):
@@ -482,7 +538,7 @@ def coordinates_for_task(index, tasks, metallicities, temperatures, densities, l
 
 
 def write_hdf5(filename, temperatures, densities, metallicities, log_us,
-               cooling, args, component):
+               cooling, heating, args, component):
     """Write coordinates, cooling values, and reproducibility metadata."""
     with h5py.File(filename, "w") as handle:
         handle.create_dataset("temperature_K", data=temperatures)
@@ -497,17 +553,25 @@ def write_hdf5(filename, temperatures, densities, metallicities, log_us,
             compression="gzip",
             compression_opts=4,
         )
+        handle.create_dataset(
+            "heating_erg_cm-3_s",
+            data=heating,
+            compression="gzip",
+            compression_opts=4,
+        )
         handle.attrs["description"] = (
             f"Cloudy photoionization {component} cooling table at fixed gas temperature."
         )
         handle.attrs["spectrum"] = "blackbody"
         handle.attrs["stellar_Teff_K"] = args.teff
         handle.attrs["cooling_units"] = "erg cm^-3 s^-1"
+        handle.attrs["heating_units"] = "erg cm^-3 s^-1"
         handle.attrs["temperature_units"] = "K"
         handle.attrs["hydrogen_density_units"] = "cm^-3"
         handle.attrs["metallicity_units"] = "Z/Zsun"
         handle.attrs["ionization_parameter_definition"] = "U = Phi(H)/(nH*c)"
         handle.attrs["cooling_definition"] = "arithmetic mean of local Cloudy zone cooling rates"
+        handle.attrs["heating_definition"] = "arithmetic mean of local Cloudy zone heating rates"
         handle.attrs["component"] = component
         handle.attrs["pycloudy_version"] = pc.__version__
         handle.attrs["cloudy_version"] = cloudy_version_from_path(args.cloudy_exe)
@@ -539,7 +603,8 @@ def write_hdf5(filename, temperatures, densities, metallicities, log_us,
         handle.attrs["iterate_mode"] = "to convergence"
         handle.attrs["temperature_command"] = "constant temperature T K linear"
         handle.attrs["axis_order"] = (
-            "cooling_erg_cm-3_s[metallicity, temperature, hydrogen_density, logU]"
+            "heating_erg_cm-3_s and cooling_erg_cm-3_s[metallicity, temperature, "
+            "hydrogen_density, logU]"
         )
 
 
@@ -592,7 +657,7 @@ def main():
     print(f"Grid shape        = ({len(metallicities)}, {len(temperatures)}, {len(densities)}, {len(log_us)})")
     print(f"Workers           = {args.workers}")
 
-    cooling_hhe, cooling_metals = compute_grid(
+    cooling_hhe, cooling_metals, heating_hhe, heating_metals = compute_grid(
         temperatures, densities, metallicities, log_us, args
     )
     stem = args.data_dir / args.output.stem
@@ -608,15 +673,17 @@ def main():
         # directly compatible with the existing checker and lookup code.
         write_hdf5(
             hhe_output, temperatures, densities, metallicities[z_index:z_index + 1],
-            log_us, cooling_hhe[z_index:z_index + 1], args, "hydrogen+helium",
+            log_us, cooling_hhe[z_index:z_index + 1], heating_hhe[z_index:z_index + 1],
+            args, "hydrogen+helium",
         )
         write_hdf5(
             metals_output, temperatures, densities, metallicities[z_index:z_index + 1],
-            log_us, cooling_metals[z_index:z_index + 1], args, "metals",
+            log_us, cooling_metals[z_index:z_index + 1], heating_metals[z_index:z_index + 1],
+            args, "metals",
         )
         print(f"Wrote: {hhe_output}")
         print(f"Wrote: {metals_output}")
-    print("Main dataset: cooling_erg_cm-3_s[metallicity, temperature, hydrogen_density, logU]")
+    print("Datasets: cooling_erg_cm-3_s and heating_erg_cm-3_s[metallicity, temperature, hydrogen_density, logU]")
 
 
 if __name__ == "__main__":

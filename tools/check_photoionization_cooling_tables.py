@@ -51,12 +51,24 @@ def check_table(path, expected_component):
             errors.append("missing cooling_erg_cm-3_s dataset")
             return errors, warnings
         cooling = np.asarray(handle["cooling_erg_cm-3_s"])
+        if "heating_erg_cm-3_s" not in handle:
+            errors.append("missing heating_erg_cm-3_s dataset")
+            return errors, warnings
+        heating = np.asarray(handle["heating_erg_cm-3_s"])
         if cooling.ndim != 4:
             errors.append(f"cooling dataset has {cooling.ndim} dimensions; expected 4")
+        if heating.ndim != 4:
+            errors.append(f"heating dataset has {heating.ndim} dimensions; expected 4")
+        if heating.shape != cooling.shape:
+            errors.append(f"heating shape {heating.shape} != cooling shape {cooling.shape}")
         if np.any(np.isinf(cooling)):
             errors.append("cooling dataset contains infinite values")
         if np.any(np.isnan(cooling)):
             warnings.append("cooling dataset contains excluded cells stored as NaN")
+        if np.any(np.isinf(heating)):
+            errors.append("heating dataset contains infinite values")
+        if np.any(np.isnan(heating)):
+            warnings.append("heating dataset contains excluded cells stored as NaN")
         if expected_component == "hydrogen+helium" and np.any(cooling < 0):
             errors.append("H/He cooling contains negative values")
         if expected_component == "metals" and np.any(cooling < 0):
@@ -84,18 +96,25 @@ def check_table(path, expected_component):
             )
             if cooling.shape != expected_shape:
                 errors.append(f"cooling shape {cooling.shape} != {expected_shape}")
+            if heating.shape != expected_shape:
+                errors.append(f"heating shape {heating.shape} != {expected_shape}")
 
         component = handle.attrs.get("component", "")
         if component != expected_component:
             errors.append(f"component metadata is {component!r}, expected {expected_component!r}")
         if handle.attrs.get("cooling_units") != "erg cm^-3 s^-1":
             errors.append("unexpected cooling units metadata")
+        if handle.attrs.get("heating_units") != "erg cm^-3 s^-1":
+            errors.append("unexpected heating units metadata")
 
         finite = cooling[np.isfinite(cooling)]
+        finite_heating = heating[np.isfinite(heating)]
         print(
             f"{path}: shape={cooling.shape}, finite={finite.size}/{cooling.size}, "
-            f"min={np.min(finite) if finite.size else np.nan:.3e}, "
-            f"max={np.max(finite) if finite.size else np.nan:.3e}"
+            f"cooling=[{np.min(finite) if finite.size else np.nan:.3e}, "
+            f"{np.max(finite) if finite.size else np.nan:.3e}], "
+            f"heating=[{np.min(finite_heating) if finite_heating.size else np.nan:.3e}, "
+            f"{np.max(finite_heating) if finite_heating.size else np.nan:.3e}]"
         )
     return errors, warnings
 
