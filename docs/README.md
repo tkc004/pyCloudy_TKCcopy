@@ -37,6 +37,10 @@ documents the following workflow improvements:
   physical units, and improved profile/image axis alignment for C3D figures.
 - Additional documentation, example READMEs, generated figure checks, and
   tests for new temperature-input behavior when Cloudy is available.
+- Photoionization-equilibrium cooling-table generation with parallel Cloudy
+  runs, H/He and metal cooling separation, HDF5 output, checkpoint/resume
+  support, and table validation; see
+  [`PhotoionizationCoolingTables.md`](PhotoionizationCoolingTables.md).
 
 These additions are maintained alongside the original notebooks and examples;
 the corresponding notebook sources remain under [`pyCloudy/docs/`](../pyCloudy/docs/).
@@ -107,6 +111,10 @@ If you are new to this fork, this is the best path:
 
 For a spherical 3D workflow with user-supplied radius, velocity, and density
 profiles, see [`Using_pyCloudy_3_spherical_profiles.md`](Using_pyCloudy_3_spherical_profiles.md).
+
+For photoionization-equilibrium cooling tables, including the Cloudy input
+recipe, HDF5 layout, resume behavior, and validation command, see
+[`PhotoionizationCoolingTables.md`](PhotoionizationCoolingTables.md).
 
 ## Examples
 

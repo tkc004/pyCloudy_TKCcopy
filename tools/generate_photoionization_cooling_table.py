@@ -100,6 +100,8 @@ def parse_args():
                         help="Number of concurrent Cloudy runs.")
     parser.add_argument("--work-dir", type=Path, default=Path("cooling_models"),
                         help="Directory where individual Cloudy models are kept.")
+    parser.add_argument("--keep-cloudy-files", action="store_true",
+                        help="Keep each Cloudy model directory and its output files.")
     parser.add_argument("--cloudy-exe", type=Path, default=None)
     parser.add_argument("--overwrite", action="store_true",
                         help="Overwrite the output HDF5 file if it exists.")
@@ -194,8 +196,10 @@ def ionization_failure_count(output_path):
     return int(matches[-1]) if matches else None
 
 
-def cleanup_model_artifacts(model_name, model_dir, work_dir):
+def cleanup_model_artifacts(model_name, model_dir, work_dir, keep=False):
     """Remove Cloudy files after their cooling rate has been extracted."""
+    if keep:
+        return
     if model_dir != work_dir and model_dir.is_dir():
         last_error = None
         for attempt in range(5):
@@ -275,7 +279,9 @@ def run_cloudy_rate(model_name, temperature, nH, metallicity, log_u, args,
             raise
         failures = ionization_failure_count(output_path)
         if failures and failures > 0:
-            cleanup_model_artifacts(model_name, model_dir, args.work_dir)
+            cleanup_model_artifacts(
+                model_name, model_dir, args.work_dir, args.keep_cloudy_files
+            )
             raise CloudyCellRejected(
                 f"{model_name}: Cloudy reported {failures} ionization failures"
             )
@@ -289,7 +295,9 @@ def run_cloudy_rate(model_name, temperature, nH, metallicity, log_u, args,
 
     failures = ionization_failure_count(output_path)
     if failures and failures > 0:
-        cleanup_model_artifacts(model_name, model_dir, args.work_dir)
+        cleanup_model_artifacts(
+            model_name, model_dir, args.work_dir, args.keep_cloudy_files
+        )
         raise CloudyCellRejected(
             f"{model_name}: Cloudy reported {failures} ionization failures"
         )
@@ -309,7 +317,9 @@ def run_cloudy_rate(model_name, temperature, nH, metallicity, log_u, args,
     if cooling.size == 0:
         raise RuntimeError(f"No finite cooling values were produced for {model_name}")
     rate = float(np.mean(cooling))
-    cleanup_model_artifacts(model_name, model_dir, args.work_dir)
+    cleanup_model_artifacts(
+        model_name, model_dir, args.work_dir, args.keep_cloudy_files
+    )
     return rate
 
 
