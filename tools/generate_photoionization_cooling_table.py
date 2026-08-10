@@ -31,14 +31,19 @@ Requirements: ``numpy``, ``h5py``, and a working Cloudy executable.
 from __future__ import annotations
 
 import argparse
+import csv
+import datetime
 import errno
 import itertools
 import os
 import platform
+import re
+import shlex
 import shutil
 import subprocess
 import sys
-from concurrent.futures import ThreadPoolExecutor, as_completed
+import time
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from pathlib import Path
 
 import h5py
@@ -51,6 +56,20 @@ if str(REPO_ROOT) not in sys.path:
 import pyCloudy as pc  # noqa: E402
 
 
+HHE_ELEMENT_COMMANDS = tuple(
+    f"element {element} abundance -30"
+    for element in (
+        "Lithium", "Beryllium", "Boron", "Carbon", "Nitrogen", "Oxygen",
+        "Fluorine", "Neon", "Sodium", "Magnesium", "Aluminum", "Silicon",
+        "Phosphorus", "Sulphur", "Chlorine", "Argon", "Potassium", "Calcium",
+        "Scandium", "Titanium", "Vanadium", "Chromium", "Manganese", "Iron",
+        "Cobalt", "Nickel", "Copper", "Zinc",
+    )
+)
+HHE_OFF_COMMANDS = tuple(command.replace(" abundance -30", " off")
+                          for command in HHE_ELEMENT_COMMANDS)
+
+
 def parse_args():
     parser = argparse.ArgumentParser(
         description="Generate a photoionization cooling table in HDF5 format."
@@ -61,6 +80,8 @@ def parse_args():
                         help="Directory for generated HDF5 tables, relative to the run directory.")
     parser.add_argument("--teff", type=float, default=30000.0,
                         help="Blackbody effective temperature in K.")
+    parser.add_argument("--iterations", type=int, default=3,
+                        help="Cloudy ionization iterations per model.")
     parser.add_argument("--logT-min", type=float, default=3.0)
     parser.add_argument("--logT-max", type=float, default=5.0)
     parser.add_argument("--nT", type=int, default=101)
@@ -84,6 +105,8 @@ def parse_args():
                         help="Overwrite the output HDF5 file if it exists.")
     parser.add_argument("--resume", action="store_true",
                         help="Reuse completed Cloudy models in --work-dir.")
+    parser.add_argument("--retry-rejected", action="store_true",
+                        help="Retry cells previously rejected for ionization failures.")
     return parser.parse_args()
 
 
@@ -116,7 +139,8 @@ def default_cloudy_executable() -> Path:
     raise RuntimeError("Cloudy executable not found; pass --cloudy-exe.")
 
 
-def make_cloudy_input(model_path, temperature, nH, metallicity, log_u, teff):
+def make_cloudy_input(model_path, temperature, nH, metallicity, log_u, teff,
+                      iterations, hhe=False):
     """Write one isolated Cloudy input file."""
     model = pc.CloudyInput(str(model_path))
     model.set_BB(
@@ -125,15 +149,21 @@ def make_cloudy_input(model_path, temperature, nH, metallicity, log_u, teff):
         lumi_value=log_u,
     )
     model.set_cste_density(np.log10(nH))
-    model.set_cste_temperature(temperature)
-    # Cloudy's ``metals`` argument is logarithmic.  The CLI and HDF5 coordinate
-    # use the clearer physical quantity Z/Zsun, hence the conversion here.
-    model.set_abund(
-        predef="hii region",
-        metals=np.log10(metallicity),
-        nograins=True,
-    )
-    model.set_stop("neutral column density 20")
+    model.set_cste_temperature(temperature, others="linear")
+    model.set_abund(predef="hii region", nograins=True)
+    if hhe:
+        model.set_other(HHE_ELEMENT_COMMANDS + HHE_OFF_COMMANDS + (
+            "metals 1e-30",
+        ))
+    else:
+        # Cloudy's ``metals`` argument is logarithmic.  The CLI and HDF5
+        # coordinate use the clearer physical quantity Z/Zsun.
+        model.set_abund(metals=np.log10(metallicity))
+    # Molecular chemistry is not part of this optically thin ionized-gas
+    # table.  Apply this to both the total-metal and H/He input recipes.
+    model.set_other(("no molecules",))
+    model.set_stop("zone 1")
+    model.set_iterate(to_convergence=True)
     model.set_comment(
         f"T={temperature:g} K, nH={nH:g} cm-3, Z/Zsun={metallicity:g}, logU={log_u:g}"
     )
@@ -151,7 +181,48 @@ def cooling_file_is_usable(path):
     return bool(np.any(np.isfinite(np.atleast_1d(values))))
 
 
-def run_cloudy_rate(model_name, temperature, nH, metallicity, log_u, args):
+class CloudyCellRejected(RuntimeError):
+    """A Cloudy cell produced an ionization-convergence failure."""
+
+
+def ionization_failure_count(output_path):
+    """Read Cloudy's ionization-failure count from the .out summary."""
+    if not output_path.exists():
+        return None
+    text = output_path.read_text(encoding="utf-8", errors="replace")
+    matches = re.findall(r"Failures:\s*\d+\s+thermal,\s*\d+\s+pressure,\s*(\d+)\s+ionization", text)
+    return int(matches[-1]) if matches else None
+
+
+def cleanup_model_artifacts(model_name, model_dir, work_dir):
+    """Remove Cloudy files after their cooling rate has been extracted."""
+    if model_dir != work_dir and model_dir.is_dir():
+        last_error = None
+        for attempt in range(5):
+            try:
+                shutil.rmtree(model_dir)
+                return
+            except OSError as exc:
+                last_error = exc
+                time.sleep(0.5 * (attempt + 1))
+        # The cooling value is already safely in memory.  Do not discard a
+        # completed grid point merely because NFS delayed directory updates.
+        print(
+            f"WARNING: could not fully remove {model_dir} after 5 attempts: "
+            f"{last_error}",
+            flush=True,
+        )
+        return
+    for path in work_dir.glob(f"{model_name}.*"):
+        if path.is_file():
+            try:
+                path.unlink()
+            except OSError as exc:
+                print(f"WARNING: could not remove {path}: {exc}", flush=True)
+
+
+def run_cloudy_rate(model_name, temperature, nH, metallicity, log_u, args,
+                    hhe=False):
     """Run or resume one isolated Cloudy model and return mean Ctot."""
     # Keep every new Cloudy invocation in a private directory.  Unique
     # prefixes alone are insufficient because Cloudy can also create shared
@@ -175,7 +246,13 @@ def run_cloudy_rate(model_name, temperature, nH, metallicity, log_u, args):
     cooling_path = model_path.with_suffix(".cool")
     reusable = args.resume and output_path.exists() and cooling_file_is_usable(cooling_path)
     if not reusable:
-        make_cloudy_input(model_path, temperature, nH, metallicity, log_u, args.teff)
+        if model_dir != args.work_dir and model_dir.exists():
+            shutil.rmtree(model_dir)
+            model_dir.mkdir(parents=True, exist_ok=True)
+        make_cloudy_input(
+            model_path, temperature, nH, metallicity, log_u,
+            args.teff, args.iterations, hhe,
+        )
 
     if not reusable:
         try:
@@ -196,6 +273,12 @@ def run_cloudy_rate(model_name, temperature, nH, metallicity, log_u, args):
                     "with --cloudy-exe."
                 ) from exc
             raise
+        failures = ionization_failure_count(output_path)
+        if failures and failures > 0:
+            cleanup_model_artifacts(model_name, model_dir, args.work_dir)
+            raise CloudyCellRejected(
+                f"{model_name}: Cloudy reported {failures} ionization failures"
+            )
         if completed.returncode != 0:
             log_path = model_path.with_suffix(".cloudy.log")
             log_path.write_text(completed.stdout or "", encoding="utf-8")
@@ -203,6 +286,13 @@ def run_cloudy_rate(model_name, temperature, nH, metallicity, log_u, args):
                 f"Cloudy failed for {model_name} with exit code {completed.returncode}; "
                 f"see {log_path}"
             )
+
+    failures = ionization_failure_count(output_path)
+    if failures and failures > 0:
+        cleanup_model_artifacts(model_name, model_dir, args.work_dir)
+        raise CloudyCellRejected(
+            f"{model_name}: Cloudy reported {failures} ionization failures"
+        )
 
     # The fourth numeric column in ``save last cooling`` is Ctot.  Read this
     # file directly instead of loading every Cloudy extension through
@@ -218,7 +308,9 @@ def run_cloudy_rate(model_name, temperature, nH, metallicity, log_u, args):
     cooling = cooling[np.isfinite(cooling)]
     if cooling.size == 0:
         raise RuntimeError(f"No finite cooling values were produced for {model_name}")
-    return float(np.mean(cooling))
+    rate = float(np.mean(cooling))
+    cleanup_model_artifacts(model_name, model_dir, args.work_dir)
+    return rate
 
 
 def run_one(task, args):
@@ -228,10 +320,8 @@ def run_one(task, args):
         f"total_model_{index:07d}", temperature, nH, metallicity, log_u, args
     )
     hhe = run_cloudy_rate(
-        # Cloudy c22 asserts for an exactly zero-metal initialization.  A
-        # 1e-10 solar metal floor is numerically safe and negligible for the
-        # H/He baseline.
-        f"hhe_model_{index:07d}", temperature, nH, 1.0e-10, log_u, args
+        f"hhe_model_{index:07d}", temperature, nH, metallicity, log_u, args,
+        hhe=True,
     )
     return index, hhe, total - hhe
 
@@ -249,6 +339,51 @@ def compute_grid(temperatures, densities, metallicities, log_us, args):
         tasks.append((index, temperature, nH, metallicity, log_u))
         index += 1
 
+    completed_rows = {}
+    rejected_indices = set()
+    checkpoint = args.checkpoint
+    if args.resume and checkpoint.exists():
+        with checkpoint.open(newline="", encoding="utf-8") as handle:
+            for row in csv.DictReader(handle):
+                row_index = int(row["index"])
+                if row.get("status", "complete") == "rejected":
+                    rejected_indices.add(row_index)
+                else:
+                    completed_rows[row_index] = row
+        for index, row in completed_rows.items():
+            if 0 <= index < len(tasks):
+                _, temperature, nH, metallicity, log_u = tasks[index]
+                if np.isclose(float(row["temperature_K"]), temperature) and np.isclose(
+                    float(row["nH_cm-3"]), nH
+                ) and np.isclose(float(row["metallicity_Zsun"]), metallicity) and np.isclose(
+                    float(row["log10_ionization_parameter"]), log_u
+                ):
+                    z, t, d, u = coordinates_for_task(
+                        index, tasks, metallicities, temperatures, densities, log_us
+                    )
+                    cooling_hhe[z, t, d, u] = float(row["hhe_cooling_erg_cm-3_s"])
+                    cooling_metals[z, t, d, u] = float(row["metal_cooling_erg_cm-3_s"])
+
+    checkpoint.parent.mkdir(parents=True, exist_ok=True)
+    checkpoint_exists = checkpoint.exists()
+    checkpoint_handle = checkpoint.open("a", newline="", encoding="utf-8")
+    checkpoint_writer = csv.DictWriter(
+        checkpoint_handle,
+        fieldnames=[
+            "index", "temperature_K", "nH_cm-3", "metallicity_Zsun",
+            "log10_ionization_parameter", "hhe_cooling_erg_cm-3_s",
+            "metal_cooling_erg_cm-3_s", "status", "error",
+        ],
+    )
+    if not checkpoint_exists:
+        checkpoint_writer.writeheader()
+
+    pending_tasks = [
+        task for task in tasks
+        if task[0] not in completed_rows
+        and not (args.resume and task[0] in rejected_indices and not args.retry_rejected)
+    ]
+
     coordinates = {
         (temperature, nH, metallicity, log_u): (z, t, d, u)
         for z, metallicity in enumerate(metallicities)
@@ -257,16 +392,83 @@ def compute_grid(temperatures, densities, metallicities, log_us, args):
         for u, log_u in enumerate(log_us)
     }
 
+    completed = 0
+    task_iterator = iter(pending_tasks)
     with ThreadPoolExecutor(max_workers=args.workers) as executor:
-        futures = [executor.submit(run_one, task, args) for task in tasks]
-        for completed, future in enumerate(as_completed(futures), start=1):
-            index, hhe_rate, metal_rate = future.result()
-            _, temperature, nH, metallicity, log_u = tasks[index]
-            z, t, d, u = coordinates[(temperature, nH, metallicity, log_u)]
-            cooling_hhe[z, t, d, u] = hhe_rate
-            cooling_metals[z, t, d, u] = metal_rate
-            print(f"  completed {completed}/{len(tasks)}", flush=True)
+        in_flight = {}
+        for _ in range(args.workers):
+            try:
+                task = next(task_iterator)
+            except StopIteration:
+                break
+            in_flight[executor.submit(run_one, task, args)] = task
+
+        # Keep only ``workers`` tasks submitted at once.  This prevents a huge
+        # grid from eagerly creating all model inputs/futures before threads
+        # have capacity to run them.
+        while in_flight:
+            finished, _ = wait(in_flight, return_when=FIRST_COMPLETED)
+            for future in finished:
+                task = in_flight.pop(future)
+                _, temperature, nH, metallicity, log_u = task
+                try:
+                    index, hhe_rate, metal_rate = future.result()
+                except CloudyCellRejected as exc:
+                    index = task[0]
+                    checkpoint_writer.writerow({
+                        "index": index,
+                        "temperature_K": temperature,
+                        "nH_cm-3": nH,
+                        "metallicity_Zsun": metallicity,
+                        "log10_ionization_parameter": log_u,
+                        "hhe_cooling_erg_cm-3_s": "",
+                        "metal_cooling_erg_cm-3_s": "",
+                        "status": "rejected",
+                        "error": str(exc),
+                    })
+                    checkpoint_handle.flush()
+                    completed += 1
+                    print(f"  rejected {completed}/{len(pending_tasks)}: {exc}", flush=True)
+                    try:
+                        next_task = next(task_iterator)
+                    except StopIteration:
+                        continue
+                    in_flight[executor.submit(run_one, next_task, args)] = next_task
+                    continue
+                z, t, d, u = coordinates[(temperature, nH, metallicity, log_u)]
+                cooling_hhe[z, t, d, u] = hhe_rate
+                cooling_metals[z, t, d, u] = metal_rate
+                checkpoint_writer.writerow({
+                    "index": index,
+                    "temperature_K": temperature,
+                    "nH_cm-3": nH,
+                    "metallicity_Zsun": metallicity,
+                    "log10_ionization_parameter": log_u,
+                    "hhe_cooling_erg_cm-3_s": hhe_rate,
+                    "metal_cooling_erg_cm-3_s": metal_rate,
+                    "status": "complete",
+                    "error": "",
+                })
+                checkpoint_handle.flush()
+                completed += 1
+                print(f"  completed {completed}/{len(pending_tasks)} pending models", flush=True)
+                try:
+                    next_task = next(task_iterator)
+                except StopIteration:
+                    continue
+                in_flight[executor.submit(run_one, next_task, args)] = next_task
+    checkpoint_handle.close()
     return cooling_hhe, cooling_metals
+
+
+def coordinates_for_task(index, tasks, metallicities, temperatures, densities, log_us):
+    """Return array indices for a task without storing a coordinate dictionary."""
+    _, temperature, nH, metallicity, log_u = tasks[index]
+    z = int(np.flatnonzero(np.isclose(metallicities, metallicity))[0])
+    t = int(np.flatnonzero(np.isclose(temperatures, temperature))[0])
+    d = int(np.flatnonzero(np.isclose(densities, nH))[0])
+    u = int(np.flatnonzero(np.isclose(log_us, log_u))[0])
+    return z, t, d, u
 
 
 def write_hdf5(filename, temperatures, densities, metallicities, log_us,
@@ -297,15 +499,58 @@ def write_hdf5(filename, temperatures, densities, metallicities, log_us,
         handle.attrs["ionization_parameter_definition"] = "U = Phi(H)/(nH*c)"
         handle.attrs["cooling_definition"] = "arithmetic mean of local Cloudy zone cooling rates"
         handle.attrs["component"] = component
+        handle.attrs["pycloudy_version"] = pc.__version__
+        handle.attrs["cloudy_version"] = cloudy_version_from_path(args.cloudy_exe)
+        handle.attrs["cloudy_executable"] = str(args.cloudy_exe)
+        handle.attrs["spectrum_description"] = "blackbody"
+        handle.attrs["spectrum_Teff_K"] = args.teff
+        handle.attrs["hhe_abundance_recipe"] = (
+            "all metals abundance -30, all metals off, metals 1e-30, no molecules"
+        )
+        handle.attrs["python_version"] = platform.python_version()
+        handle.attrs["platform"] = platform.platform()
+        handle.attrs["run_timestamp_utc"] = datetime.datetime.now(
+            datetime.timezone.utc
+        ).isoformat()
+        handle.attrs["command_line"] = shlex.join(sys.argv)
+        handle.attrs["grid_logT_min"] = args.logT_min
+        handle.attrs["grid_logT_max"] = args.logT_max
+        handle.attrs["grid_nT"] = args.nT
+        handle.attrs["grid_lognH_min"] = args.lognH_min
+        handle.attrs["grid_lognH_max"] = args.lognH_max
+        handle.attrs["grid_nnH"] = args.nnH
+        handle.attrs["grid_logU_min"] = args.logU_min
+        handle.attrs["grid_logU_max"] = args.logU_max
+        handle.attrs["grid_nU"] = args.nU
+        handle.attrs["workers"] = args.workers
+        handle.attrs["cloudy_iterations"] = args.iterations
+        handle.attrs["geometry"] = "plane-parallel slab"
+        handle.attrs["stop_criterion"] = "zone 1"
+        handle.attrs["iterate_mode"] = "to convergence"
+        handle.attrs["temperature_command"] = "constant temperature T K linear"
         handle.attrs["axis_order"] = (
             "cooling_erg_cm-3_s[metallicity, temperature, hydrogen_density, logU]"
         )
+
+
+def metallicity_label(value):
+    """Create a filesystem-safe metallicity label."""
+    label = f"{value:g}".replace("-", "m").replace(".", "p")
+    return label
+
+
+def cloudy_version_from_path(path):
+    """Extract a version such as c22.02 from a Cloudy executable path."""
+    match = re.search(r"(?:^|[/_])c(\d+\.\d+)(?:[/_.]|$)", str(path), re.IGNORECASE)
+    return match.group(1) if match else "unknown"
 
 
 def main():
     args = parse_args()
     if args.workers < 1:
         raise SystemExit("ERROR: --workers must be at least 1")
+    if args.iterations < 1:
+        raise SystemExit("ERROR: --iterations must be at least 1")
     if args.nT < 1 or args.nnH < 1 or args.nU < 1:
         raise SystemExit("ERROR: nT, nnH, and nU must be positive")
     if args.teff <= 0 or any(value <= 0 for value in args.metallicities):
@@ -319,6 +564,10 @@ def main():
             f"{args.cloudy_exe}. Compile Cloudy on this host or pass --cloudy-exe."
         )
     args.work_dir.mkdir(parents=True, exist_ok=True)
+    args.data_dir.mkdir(parents=True, exist_ok=True)
+    args.checkpoint = args.data_dir / f"{args.output.stem}.checkpoint.csv"
+    if not args.resume and args.checkpoint.exists():
+        args.checkpoint.unlink()
 
     temperatures = np.logspace(args.logT_min, args.logT_max, args.nT)
     densities = np.logspace(args.lognH_min, args.lognH_max, args.nnH)
@@ -336,24 +585,27 @@ def main():
     cooling_hhe, cooling_metals = compute_grid(
         temperatures, densities, metallicities, log_us, args
     )
-    args.data_dir.mkdir(parents=True, exist_ok=True)
     stem = args.data_dir / args.output.stem
-    hhe_output = stem.with_name(stem.name + "_HHe.h5")
-    metals_output = stem.with_name(stem.name + "_metals.h5")
-    if not args.overwrite and (hhe_output.exists() or metals_output.exists()):
-        raise SystemExit(
-            f"ERROR: split output exists; use --overwrite: {hhe_output}, {metals_output}"
+    for z_index, metallicity in enumerate(metallicities):
+        z_label = metallicity_label(metallicity)
+        hhe_output = stem.with_name(stem.name + f"_Z{z_label}_HHe.h5")
+        metals_output = stem.with_name(stem.name + f"_Z{z_label}_metals.h5")
+        if not args.overwrite and (hhe_output.exists() or metals_output.exists()):
+            raise SystemExit(
+                f"ERROR: output exists; use --overwrite: {hhe_output}, {metals_output}"
+            )
+        # Keep a one-element metallicity axis in every file, making the files
+        # directly compatible with the existing checker and lookup code.
+        write_hdf5(
+            hhe_output, temperatures, densities, metallicities[z_index:z_index + 1],
+            log_us, cooling_hhe[z_index:z_index + 1], args, "hydrogen+helium",
         )
-    write_hdf5(
-        hhe_output, temperatures, densities, metallicities, log_us,
-        cooling_hhe, args, "hydrogen+helium",
-    )
-    write_hdf5(
-        metals_output, temperatures, densities, metallicities, log_us,
-        cooling_metals, args, "metals",
-    )
-    print(f"Wrote: {hhe_output}")
-    print(f"Wrote: {metals_output}")
+        write_hdf5(
+            metals_output, temperatures, densities, metallicities[z_index:z_index + 1],
+            log_us, cooling_metals[z_index:z_index + 1], args, "metals",
+        )
+        print(f"Wrote: {hhe_output}")
+        print(f"Wrote: {metals_output}")
     print("Main dataset: cooling_erg_cm-3_s[metallicity, temperature, hydrogen_density, logU]")
 
 

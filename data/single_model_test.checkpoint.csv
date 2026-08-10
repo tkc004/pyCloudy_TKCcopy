@@ -1,0 +1,2 @@
+index,temperature_K,nH_cm-3,metallicity_Zsun,log10_ionization_parameter,hhe_cooling_erg_cm-3_s,metal_cooling_erg_cm-3_s,status,error
+0,10000.0,1.0,1.0,-2.0,2.1773e-25,5.1874699999999996e-24,complete,

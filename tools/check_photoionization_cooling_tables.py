@@ -35,7 +35,9 @@ def parse_args():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--data-dir", type=Path, default=Path("data"))
     parser.add_argument("--stem", default="photoionization_cooling_30kK",
-                        help="Base filename without _HHe.h5 or _metals.h5.")
+                        help="Base filename before _Z<label>_HHe.h5 or _Z<label>_metals.h5.")
+    parser.add_argument("--metallicity", type=float, default=1.0,
+                        help="Metallicity label used when --hhe/--metals are omitted.")
     parser.add_argument("--hhe", type=Path, default=None)
     parser.add_argument("--metals", type=Path, default=None)
     return parser.parse_args()
@@ -51,8 +53,10 @@ def check_table(path, expected_component):
         cooling = np.asarray(handle["cooling_erg_cm-3_s"])
         if cooling.ndim != 4:
             errors.append(f"cooling dataset has {cooling.ndim} dimensions; expected 4")
-        if not np.all(np.isfinite(cooling)):
-            errors.append("cooling dataset contains NaN or infinite values")
+        if np.any(np.isinf(cooling)):
+            errors.append("cooling dataset contains infinite values")
+        if np.any(np.isnan(cooling)):
+            warnings.append("cooling dataset contains excluded cells stored as NaN")
         if expected_component == "hydrogen+helium" and np.any(cooling < 0):
             errors.append("H/He cooling contains negative values")
         if expected_component == "metals" and np.any(cooling < 0):
@@ -87,14 +91,20 @@ def check_table(path, expected_component):
         if handle.attrs.get("cooling_units") != "erg cm^-3 s^-1":
             errors.append("unexpected cooling units metadata")
 
-        print(f"{path}: shape={cooling.shape}, min={cooling.min():.3e}, max={cooling.max():.3e}")
+        finite = cooling[np.isfinite(cooling)]
+        print(
+            f"{path}: shape={cooling.shape}, finite={finite.size}/{cooling.size}, "
+            f"min={np.min(finite) if finite.size else np.nan:.3e}, "
+            f"max={np.max(finite) if finite.size else np.nan:.3e}"
+        )
     return errors, warnings
 
 
 def main():
     args = parse_args()
-    hhe_path = args.hhe or args.data_dir / f"{args.stem}_HHe.h5"
-    metals_path = args.metals or args.data_dir / f"{args.stem}_metals.h5"
+    z_label = f"{args.metallicity:g}".replace("-", "m").replace(".", "p")
+    hhe_path = args.hhe or args.data_dir / f"{args.stem}_Z{z_label}_HHe.h5"
+    metals_path = args.metals or args.data_dir / f"{args.stem}_Z{z_label}_metals.h5"
     all_errors = []
     all_warnings = []
     for path, component in ((hhe_path, "hydrogen+helium"), (metals_path, "metals")):
