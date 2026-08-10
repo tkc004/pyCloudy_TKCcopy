@@ -119,6 +119,60 @@ def check_table(path, expected_component):
     return errors, warnings
 
 
+def check_metal_pie_table(path):
+    """Check the MetalPIE grouped schema."""
+    errors = []
+    warnings = []
+    with h5py.File(path, "r") as handle:
+        if "MetalPIE" not in handle:
+            return check_table(path, "metals")
+        table = handle["MetalPIE"]
+        required_attrs = {
+            "table_type": "photoionization_equilibrium_metals",
+            "cooling_units": "erg cm^-3 s^-1",
+            "heating_units": "erg cm^-3 s^-1",
+            "abundance_reference": "solar",
+            "spectrum_type": "blackbody",
+            "axis_order": "temperature,density,ionization_parameter,metallicity",
+        }
+        for name, expected in required_attrs.items():
+            if table.attrs.get(name) != expected:
+                errors.append(f"MetalPIE attribute {name!r} is not {expected!r}")
+        axes = table.get("axes")
+        rates = table.get("rates")
+        if axes is None or rates is None:
+            errors.append("MetalPIE must contain axes and rates groups")
+            return errors, warnings
+        axis_names = (
+            "log10_temperature_K", "log10_hydrogen_density_cm-3",
+            "log10_ionization_parameter", "metallicity_Zsun",
+        )
+        rate_names = ("metal_photoheating_erg_cm3_s", "metal_cooling_erg_cm3_s")
+        if any(name not in axes for name in axis_names):
+            errors.extend(f"missing MetalPIE/axes/{name}" for name in axis_names if name not in axes)
+            return errors, warnings
+        if any(name not in rates for name in rate_names):
+            errors.extend(f"missing MetalPIE/rates/{name}" for name in rate_names if name not in rates)
+            return errors, warnings
+        expected_shape = tuple(len(axes[name]) for name in axis_names)
+        for name in rate_names:
+            values = np.asarray(rates[name])
+            if values.shape != expected_shape:
+                errors.append(f"{name} shape {values.shape} != {expected_shape}")
+            if np.any(~np.isfinite(values)):
+                errors.append(f"{name} contains non-finite values")
+            if np.any(values < 0):
+                errors.append(f"{name} contains negative values")
+        print(
+            f"{path}: MetalPIE shape={expected_shape}, "
+            f"heating range=[{np.min(rates[rate_names[0]]):.3e}, "
+            f"{np.max(rates[rate_names[0]]):.3e}], "
+            f"cooling range=[{np.min(rates[rate_names[1]]):.3e}, "
+            f"{np.max(rates[rate_names[1]]):.3e}]"
+        )
+    return errors, warnings
+
+
 def main():
     args = parse_args()
     z_label = f"{args.metallicity:g}".replace("-", "m").replace(".", "p")
@@ -130,7 +184,10 @@ def main():
         if not path.exists():
             all_errors.append(f"missing file: {path}")
             continue
-        errors, warnings = check_table(path, component)
+        if component == "metals":
+            errors, warnings = check_metal_pie_table(path)
+        else:
+            errors, warnings = check_table(path, component)
         all_errors.extend(f"{path}: {error}" for error in errors)
         all_warnings.extend(f"{path}: {warning}" for warning in warnings)
 

@@ -43,10 +43,21 @@ data/single_model_test_Z1_HHe.h5
 data/single_model_test_Z1_metals.h5
 ```
 
-The metallicity axis is retained as a one-element axis in each file. Heating
-and cooling rates are stored in `erg cm^-3 s^-1` in the datasets
-`heating_erg_cm-3_s` and `cooling_erg_cm-3_s`, respectively, with axis order
-`[metallicity, temperature, hydrogen_density, logU]`.
+The metallicity axis is retained as a one-element axis in each file. Metal
+heating and cooling are stored in `erg cm^-3 s^-1` in the grouped schema:
+
+```text
+MetalPIE/axes/log10_temperature_K
+MetalPIE/axes/log10_hydrogen_density_cm-3
+MetalPIE/axes/log10_ionization_parameter
+MetalPIE/axes/metallicity_Zsun
+MetalPIE/rates/metal_photoheating_erg_cm3_s
+MetalPIE/rates/metal_cooling_erg_cm3_s
+```
+
+The rate datasets have axis order
+`[temperature, density, ionization_parameter, metallicity]`. Each metallicity
+is still written to its own HDF5 file, so its metallicity axis has length one.
 
 ## Full-grid example
 
@@ -62,10 +73,16 @@ python tools/generate_photoionization_cooling_table.py \
   --cloudy-exe /path/to/cloudy.exe
 ```
 
-Each metallicity produces an H/He file and a metal-cooling file. The metal
-rate is calculated as the total rate minus the H/He rate. The grid is
+Each metallicity produces an H/He file and a metal-PIE file. The metal rate is
+calculated as the total rate minus the H/He rate, and the metal-PIE file
+contains metal contributions only. The grid is
 thread-parallelized, while each Cloudy process is restricted to one OpenMP
 thread through `OMP_NUM_THREADS=1`.
+
+`MetalPIE/cloudy/input_file` stores the complete text of the first generated
+total-metal Cloudy input file, including the spectrum, density, temperature,
+abundances, molecular-chemistry setting, stop command, iteration command, and
+all save commands.
 
 ## Cloudy model setup
 

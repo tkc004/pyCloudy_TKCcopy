@@ -82,20 +82,22 @@ def parse_args():
                         help="Blackbody effective temperature in K.")
     parser.add_argument("--iterations", type=int, default=3,
                         help="Cloudy ionization iterations per model.")
-    parser.add_argument("--logT-min", type=float, default=3.0)
-    parser.add_argument("--logT-max", type=float, default=5.0)
+    parser.add_argument("--logT-min", type=float, default=1.0)
+    parser.add_argument("--logT-max", type=float, default=8.0)
     parser.add_argument("--nT", type=int, default=101)
-    parser.add_argument("--lognH-min", type=float, default=-2.0,
+    parser.add_argument("--lognH-min", type=float, default=-6.0,
                         help="Minimum log10 hydrogen density in cm^-3.")
-    parser.add_argument("--lognH-max", type=float, default=6.0,
+    parser.add_argument("--lognH-max", type=float, default=2.0,
                         help="Maximum log10 hydrogen density in cm^-3.")
     parser.add_argument("--nnH", type=int, default=81)
-    parser.add_argument("--logU-min", type=float, default=-4.0)
-    parser.add_argument("--logU-max", type=float, default=-1.0)
+    parser.add_argument("--logU-min", type=float, default=-6.0)
+    parser.add_argument("--logU-max", type=float, default=0.0)
     parser.add_argument("--nU", type=int, default=31)
     parser.add_argument("--metallicities", type=float, nargs="+",
-                        default=[0.1, 0.3, 1.0, 2.0],
+                        default=[0.0, 0.01, 0.1, 1.0, 2.0],
                         help="Metallicity values in Z/Zsun.")
+    parser.add_argument("--radiation-group-edges-eV", type=float, nargs="+", default=[],
+                        help="Optional radiation-group edges stored in HDF5 metadata.")
     parser.add_argument("--workers", type=int, default=1,
                         help="Number of concurrent Cloudy runs.")
     parser.add_argument("--work-dir", type=Path, default=Path("cooling_models"),
@@ -143,7 +145,7 @@ def default_cloudy_executable() -> Path:
 
 def make_cloudy_input(model_path, temperature, nH, metallicity, log_u, teff,
                       iterations, hhe=False):
-    """Write one isolated Cloudy input file."""
+    """Write one isolated Cloudy input file and return its complete text."""
     model = pc.CloudyInput(str(model_path))
     model.set_BB(
         Teff=teff,
@@ -158,9 +160,9 @@ def make_cloudy_input(model_path, temperature, nH, metallicity, log_u, teff,
             "metals 1e-30",
         ))
     else:
-        # Cloudy's ``metals`` argument is logarithmic.  The CLI and HDF5
-        # coordinate use the clearer physical quantity Z/Zsun.
-        model.set_abund(metals=np.log10(metallicity))
+        # Write the logarithmic Cloudy metallicity command explicitly.  Using
+        # set_abund(metals=0) can omit ``metals 0`` from the input at solar Z.
+        model.set_other((f"metals {np.log10(metallicity):g}",))
     # Molecular chemistry is not part of this optically thin ionized-gas
     # table.  Apply this to both the total-metal and H/He input recipes.
     model.set_other(("no molecules",))
@@ -170,6 +172,7 @@ def make_cloudy_input(model_path, temperature, nH, metallicity, log_u, teff,
         f"T={temperature:g} K, nH={nH:g} cm-3, Z/Zsun={metallicity:g}, logU={log_u:g}"
     )
     model.print_input(to_file=True, verbose=False)
+    return model_path.with_suffix(".in").read_text(encoding="utf-8")
 
 
 def cooling_file_is_usable(path):
@@ -268,14 +271,17 @@ def run_cloudy_rate(model_name, temperature, nH, metallicity, log_u, args,
         and cooling_file_is_usable(cooling_path)
         and heating_file_is_usable(heating_path)
     )
+    input_file_content = None
     if not reusable:
         if model_dir != args.work_dir and model_dir.exists():
             shutil.rmtree(model_dir)
             model_dir.mkdir(parents=True, exist_ok=True)
-        make_cloudy_input(
+        input_file_content = make_cloudy_input(
             model_path, temperature, nH, metallicity, log_u,
             args.teff, args.iterations, hhe,
         )
+    elif model_path.with_suffix(".in").exists():
+        input_file_content = model_path.with_suffix(".in").read_text(encoding="utf-8")
 
     if not reusable:
         try:
@@ -351,16 +357,24 @@ def run_cloudy_rate(model_name, temperature, nH, metallicity, log_u, args,
     cleanup_model_artifacts(
         model_name, model_dir, args.work_dir, args.keep_cloudy_files
     )
-    return cooling_rate, heating_rate
+    return cooling_rate, heating_rate, input_file_content
 
 
 def run_one(task, args):
     """Run total and H/He models and return their separated rates."""
     index, temperature, nH, metallicity, log_u = task
-    total_cooling, total_heating = run_cloudy_rate(
+    if metallicity == 0.0:
+        # At zero metallicity the metal contribution is identically zero, so
+        # avoid passing log10(0) to Cloudy and reuse the H/He model only.
+        hhe_cooling, hhe_heating, input_file_content = run_cloudy_rate(
+            f"hhe_model_{index:07d}", temperature, nH, metallicity, log_u, args,
+            hhe=True,
+        )
+        return index, hhe_cooling, 0.0, hhe_heating, 0.0, input_file_content
+    total_cooling, total_heating, input_file_content = run_cloudy_rate(
         f"total_model_{index:07d}", temperature, nH, metallicity, log_u, args
     )
-    hhe_cooling, hhe_heating = run_cloudy_rate(
+    hhe_cooling, hhe_heating, _ = run_cloudy_rate(
         f"hhe_model_{index:07d}", temperature, nH, metallicity, log_u, args,
         hhe=True,
     )
@@ -370,6 +384,7 @@ def run_one(task, args):
         total_cooling - hhe_cooling,
         hhe_heating,
         total_heating - hhe_heating,
+        input_file_content,
     )
 
 
@@ -380,6 +395,7 @@ def compute_grid(temperatures, densities, metallicities, log_us, args):
     cooling_metals = np.full(shape, np.nan, dtype=float)
     heating_hhe = np.full(shape, np.nan, dtype=float)
     heating_metals = np.full(shape, np.nan, dtype=float)
+    first_input_file = None
     tasks = []
     index = 0
     for temperature, nH, metallicity, log_u in itertools.product(
@@ -471,8 +487,10 @@ def compute_grid(temperatures, densities, metallicities, log_us, args):
                 try:
                     (
                         index, hhe_rate, metal_rate,
-                        hhe_heating_rate, metal_heating_rate,
+                        hhe_heating_rate, metal_heating_rate, input_file_content,
                     ) = future.result()
+                    if first_input_file is None and input_file_content:
+                        first_input_file = input_file_content
                 except CloudyCellRejected as exc:
                     index = task[0]
                     checkpoint_writer.writerow({
@@ -524,7 +542,7 @@ def compute_grid(temperatures, densities, metallicities, log_us, args):
                     continue
                 in_flight[executor.submit(run_one, next_task, args)] = next_task
     checkpoint_handle.close()
-    return cooling_hhe, cooling_metals, heating_hhe, heating_metals
+    return cooling_hhe, cooling_metals, heating_hhe, heating_metals, first_input_file
 
 
 def coordinates_for_task(index, tasks, metallicities, temperatures, densities, log_us):
@@ -608,6 +626,82 @@ def write_hdf5(filename, temperatures, densities, metallicities, log_us,
         )
 
 
+def write_metal_pie_hdf5(filename, temperatures, densities, metallicities,
+                          log_us, cooling, heating, args, input_file_content):
+    """Write one metallicity as the MetalPIE HDF5 schema."""
+    # Internal arrays are [Z, T, density, U]; the public schema is
+    # [T, density, U, Z].  Clamp subtraction residuals so the published metal
+    # contributions satisfy the non-negative rate contract.
+    cooling = np.maximum(np.transpose(cooling, (1, 2, 3, 0)), 0.0)
+    heating = np.maximum(np.transpose(heating, (1, 2, 3, 0)), 0.0)
+    with h5py.File(filename, "w") as handle:
+        metal_pie = handle.create_group("MetalPIE")
+        metal_pie.attrs["table_type"] = "photoionization_equilibrium_metals"
+        metal_pie.attrs["schema_version"] = 1
+        metal_pie.attrs["cooling_units"] = "erg cm^-3 s^-1"
+        metal_pie.attrs["heating_units"] = "erg cm^-3 s^-1"
+        metal_pie.attrs["abundance_reference"] = "solar"
+        metal_pie.attrs["cloudy_version"] = cloudy_version_from_path(args.cloudy_exe)
+        metal_pie.attrs["spectrum_type"] = "blackbody"
+        metal_pie.attrs["spectrum_temperature_K"] = args.teff
+        metal_pie.attrs["radiation_group_edges_eV"] = np.asarray(
+            args.radiation_group_edges_eV, dtype=float
+        )
+        metal_pie.attrs["axis_order"] = (
+            "temperature,density,ionization_parameter,metallicity"
+        )
+        metal_pie.attrs["pycloudy_version"] = pc.__version__
+        metal_pie.attrs["cloudy_executable"] = str(args.cloudy_exe)
+        metal_pie.attrs["command_line"] = shlex.join(sys.argv)
+        metal_pie.attrs["run_timestamp_utc"] = datetime.datetime.now(
+            datetime.timezone.utc
+        ).isoformat()
+        metal_pie.attrs["geometry"] = "plane-parallel slab"
+        metal_pie.attrs["stop_criterion"] = "zone 1"
+        metal_pie.attrs["iterate_mode"] = "to convergence"
+        metal_pie.attrs["temperature_command"] = "constant temperature T K linear"
+        metal_pie.attrs["molecular_chemistry"] = "disabled (no molecules)"
+        metal_pie.attrs["metal_rate_definition"] = (
+            "total Cloudy rate minus H/He-only Cloudy rate; negative residuals clipped to zero"
+        )
+
+        axes = metal_pie.create_group("axes")
+        axes.create_dataset("log10_temperature_K", data=np.log10(temperatures))
+        axes.create_dataset("log10_hydrogen_density_cm-3", data=np.log10(densities))
+        axes.create_dataset("log10_ionization_parameter", data=log_us)
+        axes.create_dataset("metallicity_Zsun", data=metallicities)
+
+        rates = metal_pie.create_group("rates")
+        rates.create_dataset(
+            "metal_photoheating_erg_cm3_s", data=heating,
+            compression="gzip", compression_opts=4,
+        )
+        rates.create_dataset(
+            "metal_cooling_erg_cm3_s", data=cooling,
+            compression="gzip", compression_opts=4,
+        )
+
+        cloudy = metal_pie.create_group("cloudy")
+        cloudy.create_dataset(
+            "input_file",
+            data=np.bytes_(input_file_content or "No completed Cloudy input was available."),
+        )
+        cloudy.create_dataset(
+            "abundance_file",
+            data=np.bytes_(
+                "abundances hii region no grains\n"
+                "metals = log10(Z/Zsun)\n"
+                "no molecules\n"
+            )
+        )
+        cloudy.create_dataset(
+            "command", data=np.bytes_(f"{args.cloudy_exe} -p <model>")
+        )
+        cloudy.create_dataset(
+            "version", data=np.bytes_(cloudy_version_from_path(args.cloudy_exe))
+        )
+
+
 def metallicity_label(value):
     """Create a filesystem-safe metallicity label."""
     label = f"{value:g}".replace("-", "m").replace(".", "p")
@@ -628,8 +722,8 @@ def main():
         raise SystemExit("ERROR: --iterations must be at least 1")
     if args.nT < 1 or args.nnH < 1 or args.nU < 1:
         raise SystemExit("ERROR: nT, nnH, and nU must be positive")
-    if args.teff <= 0 or any(value <= 0 for value in args.metallicities):
-        raise SystemExit("ERROR: Teff and metallicities must be positive")
+    if args.teff <= 0 or any(value < 0 for value in args.metallicities):
+        raise SystemExit("ERROR: Teff must be positive and metallicities non-negative")
     args.cloudy_exe = args.cloudy_exe or default_cloudy_executable()
     if not args.cloudy_exe.exists():
         raise SystemExit(f"ERROR: Cloudy executable does not exist: {args.cloudy_exe}")
@@ -657,7 +751,10 @@ def main():
     print(f"Grid shape        = ({len(metallicities)}, {len(temperatures)}, {len(densities)}, {len(log_us)})")
     print(f"Workers           = {args.workers}")
 
-    cooling_hhe, cooling_metals, heating_hhe, heating_metals = compute_grid(
+    (
+        cooling_hhe, cooling_metals, heating_hhe, heating_metals,
+        first_input_file,
+    ) = compute_grid(
         temperatures, densities, metallicities, log_us, args
     )
     stem = args.data_dir / args.output.stem
@@ -669,21 +766,23 @@ def main():
             raise SystemExit(
                 f"ERROR: output exists; use --overwrite: {hhe_output}, {metals_output}"
             )
-        # Keep a one-element metallicity axis in every file, making the files
-        # directly compatible with the existing checker and lookup code.
+        # Keep the H/He diagnostic table separate.  The metal file uses the
+        # MetalPIE schema and contains metal contributions only.
         write_hdf5(
             hhe_output, temperatures, densities, metallicities[z_index:z_index + 1],
             log_us, cooling_hhe[z_index:z_index + 1], heating_hhe[z_index:z_index + 1],
             args, "hydrogen+helium",
         )
-        write_hdf5(
-            metals_output, temperatures, densities, metallicities[z_index:z_index + 1],
-            log_us, cooling_metals[z_index:z_index + 1], heating_metals[z_index:z_index + 1],
-            args, "metals",
+        write_metal_pie_hdf5(
+            metals_output, temperatures, densities,
+            metallicities[z_index:z_index + 1], log_us,
+            cooling_metals[z_index:z_index + 1],
+            heating_metals[z_index:z_index + 1], args, first_input_file,
         )
         print(f"Wrote: {hhe_output}")
         print(f"Wrote: {metals_output}")
-    print("Datasets: cooling_erg_cm-3_s and heating_erg_cm-3_s[metallicity, temperature, hydrogen_density, logU]")
+    print("Metal datasets: MetalPIE/rates/metal_photoheating_erg_cm3_s and "
+          "MetalPIE/rates/metal_cooling_erg_cm3_s[T, density, U, Z]")
 
 
 if __name__ == "__main__":

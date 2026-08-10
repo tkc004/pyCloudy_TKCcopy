@@ -66,16 +66,25 @@ def main():
 
     for line_style, path in zip(LINE_STYLES, paths):
         with h5py.File(path, "r") as handle:
-            temperatures = np.asarray(handle["temperature_K"])
-            densities = np.asarray(handle["hydrogen_density_cm-3"])
-            log_us = np.asarray(handle["log10_ionization_parameter"])
-            metallicity = float(np.asarray(handle["metallicity_Zsun"])[0])
+            if "MetalPIE" in handle:
+                table = handle["MetalPIE"]
+                temperatures = 10.0 ** np.asarray(table["axes/log10_temperature_K"])
+                densities = 10.0 ** np.asarray(table["axes/log10_hydrogen_density_cm-3"])
+                log_us = np.asarray(table["axes/log10_ionization_parameter"])
+                metallicity = float(np.asarray(table["axes/metallicity_Zsun"])[0])
+                cooling_table = table["rates/metal_cooling_erg_cm3_s"]
+            else:
+                temperatures = np.asarray(handle["temperature_K"])
+                densities = np.asarray(handle["hydrogen_density_cm-3"])
+                log_us = np.asarray(handle["log10_ionization_parameter"])
+                metallicity = float(np.asarray(handle["metallicity_Zsun"])[0])
+                cooling_table = handle["cooling_erg_cm-3_s"]
             density_index, selected_nH = nearest_index(densities, args.nH)
             u_index, selected_logU = nearest_index(log_us, args.logU)
-            cooling = np.asarray(
-                handle["cooling_erg_cm-3_s"][0, :, density_index, u_index],
-                dtype=float,
-            )
+            if "MetalPIE" in handle:
+                cooling = np.asarray(cooling_table[:, density_index, u_index, 0], dtype=float)
+            else:
+                cooling = np.asarray(cooling_table[0, :, density_index, u_index], dtype=float)
 
         valid = np.isfinite(cooling) & (cooling > 0)
         if not np.any(valid):
