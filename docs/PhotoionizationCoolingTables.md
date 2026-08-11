@@ -43,8 +43,9 @@ data/single_model_test_Z1_HHe.h5
 data/single_model_test_Z1_metals.h5
 ```
 
-The metallicity axis is retained as a one-element axis in each file. Metal
-heating and cooling are stored in `erg cm^-3 s^-1` in the grouped schema:
+The metallicity axis is retained as a one-element axis in each file. The
+metal file stores metal heating and cooling in `erg cm^-3 s^-1` in the grouped
+schema:
 
 ```text
 MetalPIE/axes/log10_temperature_K
@@ -83,6 +84,37 @@ thread through `OMP_NUM_THREADS=1`.
 total-metal Cloudy input file, including the spectrum, density, temperature,
 abundances, molecular-chemistry setting, stop command, iteration command, and
 all save commands.
+
+## HM12 redshift-dependent background
+
+To use the Haardt–Madau 2012 UV background instead of a blackbody and
+ionization parameter, use
+`tools/generate_photoionization_cooling_table_hm12.py`. Cloudy receives
+`table HM12 redshift <z>`, so redshift replaces `log10 U` as an axis:
+
+```bash
+python tools/generate_photoionization_cooling_table_hm12.py \
+  --output metal_pie_hm12.h5 \
+  --logT-min 1 --logT-max 8 --nT 101 \
+  --lognH-min -6 --lognH-max 2 --nnH 81 \
+  --redshift-min 0 --redshift-max 15.93 --n-redshift 32 \
+  --metallicity-min 0 --metallicity-max 2 --nZ 21 \
+  --workers 4 \
+  --cloudy-exe /path/to/cloudy.exe
+```
+
+The output is split by component, with all metallicity bins stored along the
+fourth axis. The command above writes exactly two files:
+
+```text
+data/metal_pie_hm12_metals.h5
+data/metal_pie_hm12_total.h5
+```
+
+The `_metals.h5` file contains metal-only heating and cooling. The `_total.h5`
+file contains the combined H/He plus metal rates. Both use the `MetalPIE`
+group with axes `log10_temperature_K`, `log10_hydrogen_density_cm-3`,
+`redshift`, and `metallicity_Zsun`.
 
 ## Cloudy model setup
 

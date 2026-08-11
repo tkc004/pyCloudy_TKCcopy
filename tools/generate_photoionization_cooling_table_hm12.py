@@ -33,8 +33,12 @@ def parse_args():
     parser.add_argument("--redshift-min", type=float, default=0.0)
     parser.add_argument("--redshift-max", type=float, default=15.93)
     parser.add_argument("--n-redshift", type=int, default=32)
-    parser.add_argument("--metallicities", type=float, nargs="+",
-                        default=[0.0, 0.01, 0.1, 1.0, 2.0])
+    parser.add_argument("--metallicity-min", type=float, default=0.0,
+                        help="Minimum metallicity in Z/Zsun, included in the grid.")
+    parser.add_argument("--metallicity-max", type=float, default=2.0,
+                        help="Maximum metallicity in Z/Zsun, included in the grid.")
+    parser.add_argument("--nZ", "--n-metallicities", dest="nZ", type=int, default=5,
+                        help="Number of linearly spaced metallicity bins.")
     parser.add_argument("--teff", type=float, default=0.0,
                         help="Unused compatibility option; HM12 supplies the spectrum.")
     parser.add_argument("--iterations", type=int, default=3)
@@ -274,8 +278,10 @@ def main():
         raise SystemExit("nT, nnH, and n-redshift must be positive")
     if args.redshift_min < 0 or args.redshift_max > 15.93 or args.redshift_min > args.redshift_max:
         raise SystemExit("HM12 redshift must be within 0 <= z <= 15.93")
-    if any(value < 0 for value in args.metallicities):
-        raise SystemExit("metallicities must be non-negative")
+    if args.nZ < 1:
+        raise SystemExit("--nZ must be positive")
+    if args.metallicity_min < 0 or args.metallicity_max < args.metallicity_min:
+        raise SystemExit("metallicity range must satisfy 0 <= min <= max")
     args.cloudy_exe = args.cloudy_exe or base.default_cloudy_executable()
     if not args.cloudy_exe.exists() or not base.executable_matches_host(args.cloudy_exe):
         raise SystemExit(f"Cloudy executable is missing or incompatible: {args.cloudy_exe}")
@@ -287,7 +293,9 @@ def main():
     temperatures = np.logspace(args.logT_min, args.logT_max, args.nT)
     densities = np.logspace(args.lognH_min, args.lognH_max, args.nnH)
     redshifts = np.linspace(args.redshift_min, args.redshift_max, args.n_redshift)
-    metallicities = np.asarray(args.metallicities, dtype=float)
+    metallicities = np.linspace(
+        args.metallicity_min, args.metallicity_max, args.nZ
+    )
     configure_base(args)
     print("HM12 photoionization cooling-table generation")
     print("===============================================")
@@ -297,28 +305,23 @@ def main():
         temperatures, densities, redshifts, metallicities, args
     )
     stem = args.data_dir / args.output.stem
-    for z_index, metallicity in enumerate(metallicities):
-        label = base.metallicity_label(metallicity)
-        metal_output = stem.with_name(stem.name + f"_Z{label}_metals.h5")
-        total_output = stem.with_name(stem.name + f"_Z{label}_total.h5")
-        if not args.overwrite and (metal_output.exists() or total_output.exists()):
-            raise SystemExit(
-                f"ERROR: output exists; use --overwrite: {metal_output}, {total_output}"
-            )
-        write_hm12_table(
-            metal_output, temperatures, densities, redshifts,
-            metallicities[z_index:z_index + 1],
-            cooling[z_index:z_index + 1], heating[z_index:z_index + 1],
-            args, input_file, "metals",
+    metal_output = stem.with_name(stem.name + "_metals.h5")
+    total_output = stem.with_name(stem.name + "_total.h5")
+    if not args.overwrite and (metal_output.exists() or total_output.exists()):
+        raise SystemExit(
+            f"ERROR: output exists; use --overwrite: {metal_output}, {total_output}"
         )
-        write_hm12_table(
-            total_output, temperatures, densities, redshifts,
-            metallicities[z_index:z_index + 1],
-            total_cooling[z_index:z_index + 1], total_heating[z_index:z_index + 1],
-            args, input_file, "hydrogen+helium+metals",
-        )
-        print(f"Wrote: {metal_output}")
-        print(f"Wrote: {total_output}")
+    write_hm12_table(
+        metal_output, temperatures, densities, redshifts, metallicities,
+        cooling, heating, args, input_file, "metals",
+    )
+    write_hm12_table(
+        total_output, temperatures, densities, redshifts, metallicities,
+        total_cooling, total_heating, args, input_file,
+        "hydrogen+helium+metals",
+    )
+    print(f"Wrote: {metal_output}")
+    print(f"Wrote: {total_output}")
 
 
 if __name__ == "__main__":
