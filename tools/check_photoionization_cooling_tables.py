@@ -40,6 +40,8 @@ def parse_args():
                         help="Metallicity label used when --hhe/--metals are omitted.")
     parser.add_argument("--hhe", type=Path, default=None)
     parser.add_argument("--metals", type=Path, default=None)
+    parser.add_argument("--total", type=Path, default=None,
+                        help="Optional HM12 total H/He+metal MetalPIE table.")
     return parser.parse_args()
 
 
@@ -119,7 +121,7 @@ def check_table(path, expected_component):
     return errors, warnings
 
 
-def check_metal_pie_table(path):
+def check_metal_pie_table(path, expected_type="photoionization_equilibrium_metals"):
     """Check the MetalPIE grouped schema."""
     errors = []
     warnings = []
@@ -127,13 +129,19 @@ def check_metal_pie_table(path):
         if "MetalPIE" not in handle:
             return check_table(path, "metals")
         table = handle["MetalPIE"]
+        hm12 = "redshift" in table.get("axes", {})
         required_attrs = {
-            "table_type": "photoionization_equilibrium_metals",
+            "table_type": expected_type,
             "cooling_units": "erg cm^-3 s^-1",
             "heating_units": "erg cm^-3 s^-1",
             "abundance_reference": "solar",
-            "spectrum_type": "blackbody",
-            "axis_order": "temperature,density,ionization_parameter,metallicity",
+            "spectrum_type": (
+                "Haardt-Madau 2012 UV background" if hm12 else "blackbody"
+            ),
+            "axis_order": (
+                "temperature,density,redshift,metallicity" if hm12
+                else "temperature,density,ionization_parameter,metallicity"
+            ),
         }
         for name, expected in required_attrs.items():
             if table.attrs.get(name) != expected:
@@ -145,9 +153,13 @@ def check_metal_pie_table(path):
             return errors, warnings
         axis_names = (
             "log10_temperature_K", "log10_hydrogen_density_cm-3",
-            "log10_ionization_parameter", "metallicity_Zsun",
+            "redshift" if hm12 else "log10_ionization_parameter",
+            "metallicity_Zsun",
         )
-        rate_names = ("metal_photoheating_erg_cm3_s", "metal_cooling_erg_cm3_s")
+        if expected_type == "photoionization_equilibrium_total":
+            rate_names = ("photoheating_erg_cm3_s", "cooling_erg_cm3_s")
+        else:
+            rate_names = ("metal_photoheating_erg_cm3_s", "metal_cooling_erg_cm3_s")
         if any(name not in axes for name in axis_names):
             errors.extend(f"missing MetalPIE/axes/{name}" for name in axis_names if name not in axes)
             return errors, warnings
@@ -180,12 +192,20 @@ def main():
     metals_path = args.metals or args.data_dir / f"{args.stem}_Z{z_label}_metals.h5"
     all_errors = []
     all_warnings = []
-    for path, component in ((hhe_path, "hydrogen+helium"), (metals_path, "metals")):
+    paths = [
+        (hhe_path, "hydrogen+helium", "photoionization_equilibrium_metals"),
+        (metals_path, "metals", "photoionization_equilibrium_metals"),
+    ]
+    if args.total is not None:
+        paths.append((args.total, "total", "photoionization_equilibrium_total"))
+    for path, component, expected_type in paths:
         if not path.exists():
             all_errors.append(f"missing file: {path}")
             continue
         if component == "metals":
-            errors, warnings = check_metal_pie_table(path)
+            errors, warnings = check_metal_pie_table(path, expected_type)
+        elif component == "total":
+            errors, warnings = check_metal_pie_table(path, expected_type)
         else:
             errors, warnings = check_table(path, component)
         all_errors.extend(f"{path}: {error}" for error in errors)
