@@ -98,7 +98,8 @@ python tools/generate_photoionization_cooling_table_hm12.py \
   --logT-min 1 --logT-max 8 --nT 101 \
   --lognH-min -6 --lognH-max 2 --nnH 81 \
   --redshift-min 0 --redshift-max 15.93 --n-redshift 32 \
-  --metallicity-min 0 --metallicity-max 2 --nZ 21 \
+  --metallicity-min 0.01 --metallicity-max 2 --nZ 20 \
+  --include-zero-metallicity \
   --workers 4 \
   --cloudy-exe /path/to/cloudy.exe
 ```

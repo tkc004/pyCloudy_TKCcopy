@@ -33,12 +33,14 @@ def parse_args():
     parser.add_argument("--redshift-min", type=float, default=0.0)
     parser.add_argument("--redshift-max", type=float, default=15.93)
     parser.add_argument("--n-redshift", type=int, default=32)
-    parser.add_argument("--metallicity-min", type=float, default=0.0,
-                        help="Minimum metallicity in Z/Zsun, included in the grid.")
+    parser.add_argument("--metallicity-min", type=float, default=0.01,
+                        help="Minimum positive metallicity in Z/Zsun; bins are logarithmic.")
     parser.add_argument("--metallicity-max", type=float, default=2.0,
-                        help="Maximum metallicity in Z/Zsun, included in the grid.")
+                        help="Maximum positive metallicity in Z/Zsun; bins are logarithmic.")
     parser.add_argument("--nZ", "--n-metallicities", dest="nZ", type=int, default=5,
-                        help="Number of linearly spaced metallicity bins.")
+                        help="Number of logarithmically spaced positive metallicity bins.")
+    parser.add_argument("--include-zero-metallicity", action="store_true",
+                        help="Prepend an exact Z=0 bin; it is not part of log spacing.")
     parser.add_argument("--teff", type=float, default=0.0,
                         help="Unused compatibility option; HM12 supplies the spectrum.")
     parser.add_argument("--iterations", type=int, default=3)
@@ -280,8 +282,11 @@ def main():
         raise SystemExit("HM12 redshift must be within 0 <= z <= 15.93")
     if args.nZ < 1:
         raise SystemExit("--nZ must be positive")
-    if args.metallicity_min < 0 or args.metallicity_max < args.metallicity_min:
-        raise SystemExit("metallicity range must satisfy 0 <= min <= max")
+    if args.metallicity_min <= 0 or args.metallicity_max < args.metallicity_min:
+        raise SystemExit(
+            "positive metallicity range must satisfy 0 < min <= max; "
+            "use --include-zero-metallicity for an additional Z=0 bin"
+        )
     args.cloudy_exe = args.cloudy_exe or base.default_cloudy_executable()
     if not args.cloudy_exe.exists() or not base.executable_matches_host(args.cloudy_exe):
         raise SystemExit(f"Cloudy executable is missing or incompatible: {args.cloudy_exe}")
@@ -293,9 +298,11 @@ def main():
     temperatures = np.logspace(args.logT_min, args.logT_max, args.nT)
     densities = np.logspace(args.lognH_min, args.lognH_max, args.nnH)
     redshifts = np.linspace(args.redshift_min, args.redshift_max, args.n_redshift)
-    metallicities = np.linspace(
+    metallicities = np.geomspace(
         args.metallicity_min, args.metallicity_max, args.nZ
     )
+    if args.include_zero_metallicity:
+        metallicities = np.concatenate(([0.0], metallicities))
     configure_base(args)
     print("HM12 photoionization cooling-table generation")
     print("===============================================")
