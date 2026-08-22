@@ -16,6 +16,7 @@ Each example lives in its own directory named after the script.
 - [`Using_pyCloudy_3_spherical_profiles`](../docs/Using_pyCloudy_3_spherical_profiles.md): spherical `Using_pyCloudy_3` example driven by an external radial profile CSV
 - [`Using_pyCloudy_3_spherical_profiles_rhd`](../docs/Using_pyCloudy_3_spherical_profiles_rhd.md): RHD-profile variant using `radial_profile_rhd.csv` and an ionizing photon rate of `10^49 s^-1`
 - [`Using_pyCloudy_3_spherical_profiles_rhd_wind`](../docs/Using_pyCloudy_3_spherical_profiles_rhd_wind.md): RHD stellar-wind profile variant using `radial_profile_rhd_wind.csv`, with `10^-6 Msun/yr` and `1000 km/s` represented by the external profile
+- `Using_pyCloudy_3_spherical_profiles_rhd_wind_temperature_attenuation/Using_pyCloudy_3_spherical_profiles_rhd_wind_temperature_attenuation.py`: temperature-profile stellar-wind variant with a configurable foreground attenuation screen
 - `shocks/shocks.py` from `pyCloudy/docs/shocks.ipynb`
 - `quickstart/quickstart.py` from the README quickstart example
 
